@@ -5,8 +5,8 @@ module Main where
 import RIO
 import RIO.Directory
 import RIO.Process
-import Options.Applicative.Simple
-import Lib
+import Nux.Cmd
+import Nux.Options
 import Paths_nux (version)
 
 main :: IO ()
@@ -21,30 +21,7 @@ main = do
                   <> help "Verbose output?"
                  )
     )
-    (addSubCommandsWithOptions
-      "say"
-      "Say something"
-      (SayOptions
-        <$> strOption
-            ( long "name"
-            <> short 'n'
-            <> value "Nux"
-            <> help "Name to say to"
-            <> metavar "NAME"
-            )
-      )
-      (do addCommand
-            "hello"
-            "Hello, Nux!"
-            (const hello)
-            (pure ())
-          addCommand
-            "goodbye"
-            "Goodbye, Nux!"
-            (const goodbye)
-            (pure ())
-      )
-    )
+    nux
   lo <- logOptionsHandle stderr (optVerbose options)
   pc <- mkDefaultProcessContext
   withLogFunc lo $ \lf ->
