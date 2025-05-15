@@ -14,6 +14,7 @@ dependencies:
   - base >= 4.7 && < 5
   - optparse-simple
   - rio
+  - transformers
 
 ghc-options:
   - -Wall

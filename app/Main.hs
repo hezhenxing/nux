@@ -21,11 +21,29 @@ main = do
                   <> help "Verbose output?"
                  )
     )
-    (do addCommand
-          "hello"
-          "Hello, Nux!"
-          (const hello)
-          (pure ())
+    (addSubCommandsWithOptions
+      "say"
+      "Say something"
+      (SayOptions
+        <$> strOption
+            ( long "name"
+            <> short 'n'
+            <> value "Nux"
+            <> help "Name to say to"
+            <> metavar "NAME"
+            )
+      )
+      (do addCommand
+            "hello"
+            "Hello, Nux!"
+            (const hello)
+            (pure ())
+          addCommand
+            "goodbye"
+            "Goodbye, Nux!"
+            (const goodbye)
+            (pure ())
+      )
     )
   lo <- logOptionsHandle stderr (optVerbose options)
   pc <- mkDefaultProcessContext
