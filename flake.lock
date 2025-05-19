@@ -5,44 +5,26 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1747054172,
-        "narHash": "sha256-oIWXYzfFqDlyNCLl39RpDSoHXtvpJ9PaI7A/Fw3FBf4=",
+        "lastModified": 1747550553,
+        "narHash": "sha256-6wIWDt6ar4YLLvburpYsWuFxk7TtP/ghUjp1u4Dtye8=",
         "owner": "nix-community",
         "repo": "flakelight",
-        "rev": "95f19ef3204e166de16149008e7667000cbe8f23",
+        "rev": "a06c4cd93a970142bd8d120487340362aefbe385",
         "type": "github"
       },
       "original": {
         "owner": "nix-community",
         "repo": "flakelight",
-        "type": "github"
-      }
-    },
-    "flakelight-haskell": {
-      "inputs": {
-        "flakelight": "flakelight"
-      },
-      "locked": {
-        "lastModified": 1747175029,
-        "narHash": "sha256-Lar2y+UAzpd1lNsdBssYn7beEan0DgFDPYYyBb/njgc=",
-        "owner": "hezhenxing",
-        "repo": "flakelight-haskell",
-        "rev": "bff1d691b4746cbcd89f81f9ddad983fc0a4c55d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hezhenxing",
-        "repo": "flakelight-haskell",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1746904237,
-        "narHash": "sha256-3e+AVBczosP5dCLQmMoMEogM57gmZ2qrVSrmq9aResQ=",
+        "lastModified": 1747542820,
+        "narHash": "sha256-GaOZntlJ6gPPbbkTLjbd8BMWaDYafhuuYRNrxCGnPJw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "d89fc19e405cb2d55ce7cc114356846a0ee5e956",
+        "rev": "292fa7d4f6519c074f0a50394dbbe69859bb6043",
         "type": "github"
       },
       "original": {
@@ -54,7 +36,7 @@
     },
     "root": {
       "inputs": {
-        "flakelight-haskell": "flakelight-haskell"
+        "flakelight": "flakelight"
       }
     }
   },
