@@ -12,5 +12,6 @@
     tuner
     wechat-uos
     node2nix
+    fd
   ];
 }

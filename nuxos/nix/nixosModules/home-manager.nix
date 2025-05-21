@@ -5,7 +5,7 @@
   home-manager = {
     useUserPackages = true;
     useGlobalPkgs = true;
-    backupFileExtension = "bak";
+    backupFileExtension = "backup";
     extraSpecialArgs = {
       inherit inputs;
       inherit flake;
