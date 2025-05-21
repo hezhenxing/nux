@@ -14,6 +14,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.home-manager.follows = "home-manager";
     };
+    nvf = {
+      url = "github:notashelf/nvf";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = inputs@{flakelight, ...}: flakelight ./. {
     inherit inputs;

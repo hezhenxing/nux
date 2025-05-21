@@ -15,6 +15,7 @@ dependencies:
   - data-default
   - optparse-simple
   - prettyprinter
+  - process
   - rio
   - transformers
 

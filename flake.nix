@@ -15,8 +15,18 @@
         hpack
         cabal test
       '';
+      run = pkgs.writeShellScriptBin "run" ''
+        nix run . -- "$@"
+      '';
       runvm = pkgs.writeShellScriptBin "runvm" ''
         nix run ./nuxos#nixosConfigurations.nux.config.system.build.vm
+      '';
+      help = pkgs.writeShellScriptBin "help" ''
+        echo "Welcome to Nux!"
+        echo "Available commands:"
+        echo "  repl    -- start cabal repl"
+        echo "  runtest -- run cabal test"
+        echo "  runvm   -- start NuxOS virtual machine"
       '';
     in with pkgs; [
       hpack
@@ -25,6 +35,8 @@
       repl
       runtest
       runvm
+      run
+      help
     ];
     template = {
       path = ./nuxos;

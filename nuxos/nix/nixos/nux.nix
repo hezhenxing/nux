@@ -1,4 +1,6 @@
-{inputs, ...}: {
+{inputs, flakelight, ...}: {
   system = "x86_64-linux";
-  modules = builtins.attrValues inputs.self.nixosModules;
+  modules = with builtins;
+    attrValues inputs.self.nixosModules
+    ++ (attrValues (flakelight.importDir ./nux));
 }

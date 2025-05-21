@@ -11,6 +11,7 @@ import RIO.File
 import RIO.FilePath
 import Nux.Options
 import Nux.Cmd.OS.Init
+import Nux.Cmd.OS.Switch
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
@@ -19,6 +20,7 @@ osCmds = addSubCommands
   (do initCmd
       addCmd
       removeCmd
+      switchCmd
   )
 
 data AddOptions = AddOptions

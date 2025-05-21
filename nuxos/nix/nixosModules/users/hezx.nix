@@ -1,4 +1,4 @@
-{
+{pkgs, ...}: {
   users = {
     groups.hezx.gid = 1000;
     users.hezx = {
@@ -13,6 +13,8 @@
         "scanner"
         "wheel"
       ];
+      shell = pkgs.zsh;
+      ignoreShellProgramCheck = true;
       initialPassword = "nuxos";
     };
   };
