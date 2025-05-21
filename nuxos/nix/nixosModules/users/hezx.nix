@@ -1,6 +1,5 @@
-{pkgs, ...}: {
+{
   users = {
-    mutableUsers = true;
     groups.hezx.gid = 1000;
     users.hezx = {
       isNormalUser = true;

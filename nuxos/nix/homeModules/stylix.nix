@@ -1,7 +1,4 @@
 {inputs, pkgs, ...}: {
-  # imports = [
-  #   inputs.stylix.homeModules.stylix
-  # ];
   stylix.targets = {
     waybar.enable = false;
     rofi.enable = false;

@@ -1,4 +1,4 @@
-{inputs, lib, ...}: {
+{inputs, lib, flake, flakelight, ...}: {
   imports = [
     inputs.home-manager.nixosModules.home-manager
   ];
@@ -8,6 +8,8 @@
     backupFileExtension = "bak";
     extraSpecialArgs = {
       inherit inputs;
+      inherit flake;
+      inherit flakelight;
     };
     users = with lib; with builtins; pipe ../home [
       readDir
