@@ -50,6 +50,11 @@
     NUXOS = "true";
     GLFW_IM_MODULE = "ibus";
   };
+  environment.shells = with pkgs; [
+    bash
+    zsh
+  ];
+  system.fsPackages = [pkgs.ntfs3g];
   console.keyMap = "us";
   system.stateVersion = "23.11"; # Do not change!
   system.nixos.label = "NuxOS";
