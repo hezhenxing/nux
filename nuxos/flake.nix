@@ -21,6 +21,7 @@
   };
   outputs = inputs@{flakelight, ...}: flakelight ./. {
     inherit inputs;
+    nixpkgs.config = { allowUnfree = true; };
     apps.vm = {
       type = "app";
       program = "${inputs.self.nixosConfigurations.nux.config.system.build.vm}/bin/run-nux-vm";
