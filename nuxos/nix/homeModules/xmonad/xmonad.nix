@@ -12,4 +12,9 @@
       config = ./xmonad.hs;
     };
   };
+  systemd.user.targets.hm-graphical-session.Unit = {
+    Requires = [
+      "xdg-desktop-autostart.target"
+    ];
+  };
 }
