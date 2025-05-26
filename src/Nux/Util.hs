@@ -97,6 +97,9 @@ exit = liftIO . exitWith . code
 git :: String -> [String] -> RIO env String
 git cmd args = exec "git" (cmd : args)
 
+gitC :: String -> String -> [String] -> RIO env String
+gitC repo cmd args = exec "git" (["-C", repo, cmd] ++ args)
+
 getEnvDefault :: MonadIO m => String -> String -> m String
 getEnvDefault var def = do
   liftIO $ lookupEnv var <&> fromMaybe def

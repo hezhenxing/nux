@@ -4,3 +4,4 @@ dist-newstyle/
 .history
 *.cabal
 nuxos/
+*.qcow2
