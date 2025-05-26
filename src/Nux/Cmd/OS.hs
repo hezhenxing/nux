@@ -13,6 +13,7 @@ import Nux.Options
 import Nux.Cmd.OS.Init
 import Nux.Cmd.OS.Switch
 import Nux.Cmd.OS.Install
+import Nux.Cmd.OS.VM
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
@@ -23,6 +24,7 @@ osCmds = addSubCommands
       addCmd
       removeCmd
       switchCmd
+      vmCmd
   )
 
 data AddOptions = AddOptions
@@ -68,7 +70,6 @@ runRemove RemoveOptions{..} = do
     if exist
       then removeFile nixFile
       else logWarn $ fromString $ "Package not found: " <> pname
-
 
 homeModuleFile :: String -> FilePath
 homeModuleFile name = "nix/homeModules" </> name <.> "nix"

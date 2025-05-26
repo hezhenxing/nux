@@ -2,5 +2,5 @@ result
 .direnv/
 dist-newstyle/
 .history
-*.cabal/
+*.cabal
 nuxos/

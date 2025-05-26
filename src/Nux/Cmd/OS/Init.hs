@@ -7,12 +7,17 @@ module Nux.Cmd.OS.Init
 
 import RIO
 import RIO.Directory
+import RIO.File
+import RIO.FilePath
 import Nux.Expr
 import Nux.Flake
 import Nux.Options
+import Nux.Util
 
 data InitOptions = InitOptions
   { initOptForce :: Bool
+  , initOptDir   :: FilePath
+  , initOptUrl   :: String
   } deriving (Show, Eq)
 
 initCmd :: Command (RIO App ())
@@ -28,18 +33,31 @@ opts = InitOptions
              <> short 'f'
              <> help "Force initialization"
              )
+  <*> strArgument ( metavar "DIR"
+                 <> value "."
+                 <> help "Directory to initialize Nux in"
+                  )
+  <*> strArgument ( metavar "URL"
+                <> help "URL of the NuxOS repository"
+                <> value "github:hezhenxing/nuxos"
+                )
 
 run :: InitOptions -> RIO App ()
 run InitOptions{..} = do
-  dir <- getCurrentDirectory
+  dir <- makeAbsolute initOptDir
+  createDirectoryIfMissing True dir
   isEmpty <- isEmptyDirectory dir
   unless isEmpty $ do
     if initOptForce
-      then logWarn "Directory is not empty, Forcing overwrting existing files..."
+      then do
+        logWarn "Directory is not empty, Forcing remove existing files..."
+        removeDirectoryRecursive dir
       else do
-        logError "The directory is not empty. Please run this command in an empty directory."
+        logError "The target directory is not empty."
         throwString $ "directory not empty: " <> dir
-  logInfo "Initializing Nux..."
+  logInfo $ "Initializing Nux in directory: " <> fromString dir
+  git "clone" [initOptUrl, dir]
+  logInfo "Nux initialized successfully."
 
 isEmptyDirectory :: HasLogFunc env => FilePath -> RIO env Bool
 isEmptyDirectory dir = do

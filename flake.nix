@@ -16,10 +16,8 @@
         cabal test
       '';
       run = pkgs.writeShellScriptBin "run" ''
+        export NUXOS_FLAKE=$(dirname $(dirname $out))/nuxos
         nix run . -- "$@"
-      '';
-      runvm = pkgs.writeShellScriptBin "runvm" ''
-        nix run ./nuxos#nixosConfigurations.nuxos.config.system.build.vm
       '';
       help = pkgs.writeShellScriptBin "help" ''
         echo "Welcome to Nux!"
@@ -34,7 +32,6 @@
       nixfmt
       repl
       runtest
-      runvm
       run
       help
     ];

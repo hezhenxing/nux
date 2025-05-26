@@ -9,6 +9,7 @@ import RIO.Directory
 import RIO.Char (isSpace)
 import qualified RIO.List as L
 import System.Process (system, readProcessWithExitCode)
+import System.Environment (lookupEnv)
 
 exec :: String -> [String] -> RIO env String
 exec cmd args = do
@@ -40,6 +41,9 @@ mounted path = do
 
 nix :: String -> [String] -> RIO env String
 nix cmd args = exec "nix" (cmd : args)
+
+nixrun :: [String] -> RIO env String
+nixrun args = exec "nix" ("run" : args)
 
 nixosRebuild :: String -> [String] -> RIO env ()
 nixosRebuild cmd args = void $ sudo "nixos-rebuild" (cmd : args)
@@ -89,3 +93,10 @@ exit = liftIO . exitWith . code
   where
     code 0 = ExitSuccess
     code n = ExitFailure n
+
+git :: String -> [String] -> RIO env String
+git cmd args = exec "git" (cmd : args)
+
+getEnvDefault :: MonadIO m => String -> String -> m String
+getEnvDefault var def = do
+  liftIO $ lookupEnv var <&> fromMaybe def
