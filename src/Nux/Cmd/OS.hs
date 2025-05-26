@@ -12,12 +12,14 @@ import RIO.FilePath
 import Nux.Options
 import Nux.Cmd.OS.Init
 import Nux.Cmd.OS.Switch
+import Nux.Cmd.OS.Install
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
   "os"
   "OS commands"
   (do initCmd
+      installCmd
       addCmd
       removeCmd
       switchCmd

@@ -8,7 +8,7 @@ module Nux.Cmd.OS.Switch
 
 import RIO
 import Nux.Options
-import System.Process (system)
+import Nux.Util
 
 switchCmd :: Command (RIO App ())
 switchCmd = addCommand
@@ -18,10 +18,9 @@ switchCmd = addCommand
   (pure ())
 
 runSwitch :: RIO App ()
-runSwitch = do
-  (liftIO $ system "sudo nixos-rebuild switch --flake ./nuxos#nux") >>= \case
-    ExitSuccess ->
-      return ()
-    ExitFailure rc ->
-      logError $ fromString $ "nixos-rebuild switch command failed with exist code: " <> show rc
-
+runSwitch =
+  tryAny (nixosSwitch ["--flake", "./nuxos#nux"]) >>= \case
+    Left e -> do
+      logError $ fromString $ "Failed to switch NuxOS: " <> displayException e
+    Right _ -> do
+      logInfo "Switched to NuxOS configuration successfully."
