@@ -19,7 +19,7 @@
         nix run . -- "$@"
       '';
       runvm = pkgs.writeShellScriptBin "runvm" ''
-        nix run ./nuxos#nixosConfigurations.nux.config.system.build.vm
+        nix run ./nuxos#nixosConfigurations.nuxos.config.system.build.vm
       '';
       help = pkgs.writeShellScriptBin "help" ''
         echo "Welcome to Nux!"
