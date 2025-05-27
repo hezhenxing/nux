@@ -31,6 +31,8 @@ data AddOptions = AddOptions
   , addOptGlobal  :: Bool
   , addOptProgram :: Bool
   , addOptService :: Bool
+  , addOptEdit    :: Bool
+  , addOptEditor  :: String
   } deriving (Show, Eq)
 
 addCmd :: Command (RIO App ())
@@ -53,6 +55,15 @@ addCmd = addCommand
                         <> short 's'
                         <> help "Add package as a service"
                         )
+              <*> switch ( long "edit"
+                        <> short 'e'
+                        <> help "Edit package after adding"
+                        )
+              <*> strOption ( long "editor"
+                              <> short 'E'
+                              <> value ""
+                              <> help "Editor to use for editing the package file"
+                              )
   )
 
 runAdd :: AddOptions -> RIO App ()
@@ -71,6 +82,10 @@ runAdd AddOptions{..} = do
       else do
         writeBinaryFile pkgFile $ fromString $ content pname
         nixfmt pkgFile []
+        when addOptEdit $ do
+          logInfo $ fromString $ "Editing package: " <> pname
+          void $ edit addOptEditor pkgFile
+          nixfmt pkgFile []
         void $ gitC flake "add" [pkgFile]
   void $ gitC flake "commit" ["-m", L.unlines ("Add " <> title addOptGlobal : addOptNames)]
   logInfo $ fromString $ "Successfully added " <> title addOptGlobal <> "!"
@@ -207,7 +222,7 @@ editCmd = addCommand
                            <> help "Edit global (system-wide) package instead of user-specific"
                              )
                <*> strOption ( long "editor"
-                              <> short 'e'
+                              <> short 'E'
                               <> value ""
                               <> help "Editor to use for editing the package file"
                               )
