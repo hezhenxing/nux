@@ -23,6 +23,7 @@ pmCmds = addSubCommands
   (do addCmd
       delCmd
       listCmd
+      editCmd
   )
 
 data AddOptions = AddOptions
@@ -186,3 +187,52 @@ title :: Bool -> String
 title global = if global
   then "global packages"
   else "user packages"
+
+data EditOptions = EditOptions
+  { editOptName   :: String
+  , editOptGlobal :: Bool
+  , editEditor    :: String
+  } deriving (Show, Eq)
+
+editCmd :: Command (RIO App ())
+editCmd = addCommand
+  "edit"
+  "Edit package in Nux system"
+  runEdit
+  (EditOptions <$> strArgument ( metavar "NAME"
+                                 <> help "Package name to be edited"
+                                 )
+               <*> switch ( long "global"
+                           <> short 'g'
+                           <> help "Edit global (system-wide) package instead of user-specific"
+                             )
+               <*> strOption ( long "editor"
+                              <> short 'e'
+                              <> value ""
+                              <> help "Editor to use for editing the package file"
+                              )
+  )
+
+runEdit :: EditOptions -> RIO App ()
+runEdit EditOptions{..} = do
+  flake <- view flakeL
+  let pkgsDir = if editOptGlobal
+                then flake </> "nix/nixosModules/packages"
+                else flake </> "nix/homeModules/packages"
+  let pkgFile = pkgsDir </> editOptName <.> "nix"
+  exist <- doesFileExist pkgFile
+  if not exist
+    then logError $ fromString $ "Package not found: " <> editOptName
+    else do
+      logInfo $ fromString $ "Editing package: " <> editOptName
+      void $ edit editEditor pkgFile
+      nixfmt pkgFile []
+      status <- gitC flake "status" ["--porcelain", pkgFile]
+      if (L.isPrefixOf "M " (trim status)) then do
+        logInfo $ fromString $ "Changes detected in package: " <> editOptName
+        void $ gitC flake "add" [pkgFile]
+        void $ gitC flake "commit" ["-m", "Edit package: " <> editOptName]
+        logInfo $ fromString $ "Successfully edited package: " <> editOptName
+      else do
+        logInfo $ fromString $ "No changes detected in package: " <> editOptName
+

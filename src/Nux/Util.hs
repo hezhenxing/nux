@@ -106,3 +106,11 @@ gitC repo cmd args = exec "git" (["-C", repo, cmd] ++ args)
 getEnvDefault :: MonadIO m => String -> String -> m String
 getEnvDefault var def = do
   liftIO $ lookupEnv var <&> fromMaybe def
+
+edit :: MonadIO m => String -> String -> m ()
+edit editor file = do
+  defEditor <- getEnvDefault "EDITOR" "nano"
+  let cmd = if editor == ""
+            then defEditor
+            else editor
+  void $ liftIO $ system (cmd <> " " <> file)
