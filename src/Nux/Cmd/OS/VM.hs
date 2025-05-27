@@ -25,4 +25,4 @@ runvm = do
     Left e -> do
       logError $ fromString $ "Failed to vm NuxOS: " <> displayException e
     Right _ -> do
-      logInfo "vmed to NuxOS configuration successfully."
+      logInfo "Start VM of NuxOS configuration successfully."

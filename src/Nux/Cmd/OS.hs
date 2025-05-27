@@ -14,12 +14,14 @@ import Nux.Cmd.OS.Init
 import Nux.Cmd.OS.Switch
 import Nux.Cmd.OS.Install
 import Nux.Cmd.OS.VM
+import Nux.Cmd.OS.Pull
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
   "os"
   "OS commands"
   (do initCmd
+      pullCmd
       installCmd
       addCmd
       removeCmd

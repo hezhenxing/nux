@@ -39,6 +39,9 @@ mounted path = do
   mnts <- mounts
   return $ any (L.isPrefixOf path) mnts
 
+nixfmt :: String -> [String] -> RIO env ()
+nixfmt f opts = void $ exec "nixfmt" (f : opts)
+
 nix :: String -> [String] -> RIO env String
 nix cmd args = exec "nix" (cmd : args)
 

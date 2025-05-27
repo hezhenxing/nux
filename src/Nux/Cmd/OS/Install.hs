@@ -11,7 +11,6 @@ import RIO
 import RIO.File
 import Nux.Options
 import Nux.Util
-import System.Process (system)
 
 installCmd :: Command (RIO App ())
 installCmd = addCommand
@@ -58,23 +57,23 @@ runInstall InstallOptions{..} = do
     exit 1
   logInfo $ fromString $ "Mounting " <> installOptRootDev <> " to " <> mnt
   mount installOptRootDev mnt
-  sudo "mkdir" ["-p", (mnt <> efiMount)]
+  void $ sudo "mkdir" ["-p", (mnt <> efiMount)]
   logInfo $ fromString $ "Mounting " <> efiDev <> " to " <> (mnt <> efiMount)
   mount efiDev (mnt <> efiMount)
-  sudo "mkdir" [mnt <> "/etc"]
+  void $ sudo "mkdir" [mnt <> "/etc"]
   logInfo $ fromString $ "Copying Nux system to " <> mnt
-  sudo "cp" ["-r", "./nuxos", mnt <> "/etc"]
+  void $ sudo "cp" ["-r", "./nuxos", mnt <> "/etc"]
   logInfo $ fromString $ "Generating hardware configuration"
   hwcfg <- sudo "nixos-generate-config"
     [ "--root", mnt
     , "--show-hardware-config"
     ]
-  sudo "mkdir" [mnt <> "/tmp"]
-  sudo "chmod" ["0777", mnt <> "/tmp"]
+  void $ sudo "mkdir" [mnt <> "/tmp"]
+  void $ sudo "chmod" ["0777", mnt <> "/tmp"]
   writeBinaryFile (mnt <> "/tmp" <> "/hardware.nix") $ fromString hwcfg
-  sudo "mv" [mnt <> "/tmp/hardware.nix", mnt <> "/etc/nuxos/nix/nixos/nux/hardware.nix"]
+  void $ sudo "mv" [mnt <> "/tmp/hardware.nix", mnt <> "/etc/nuxos/nix/nixos/nux/hardware.nix"]
   logInfo $ fromString $ "Installing Nux system to " <> mnt
-  sudo "nixos-install" ["--flake", mnt <> "/etc/nuxos#nux", "--root", mnt]
+  void $ sudo "nixos-install" ["--flake", mnt <> "/etc/nuxos#nux", "--root", mnt]
   logInfo $ fromString $ "Congradulations! Installation succeeded!"
   umount (mnt <> efiMount)
   umount mnt

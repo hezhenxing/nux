@@ -74,8 +74,8 @@ runAdd opt@AddOptions{..} = do
     else do
       logInfo $ fromString $ "Writing user file " <> userFile
       writeBinaryFile userFile $ fromString $ showPretty $ toNixExpr opt
-      gitC flake "add" ["-f", userFile]
-      gitC flake "commit" ["-m", "Add user: " <> addOptUsername]
+      void $ gitC flake "add" ["-f", userFile]
+      void $ gitC flake "commit" ["-m", "Add user: " <> addOptUsername]
       logInfo "User added successfully!"
 
 data DelOptions = DelOptions
@@ -104,6 +104,6 @@ runDel DelOptions{..} = do
     else do
       logInfo $ fromString $ "Removing user file " <> userFile
       removeFile userFile
-      gitC flake "rm" [userFile]
-      gitC flake "commit" ["-m", "del user: " <> delOptUsername]
+      void $ gitC flake "rm" [userFile]
+      void $ gitC flake "commit" ["-m", "del user: " <> delOptUsername]
       logInfo "User deleted successfully!"

@@ -7,10 +7,6 @@ module Nux.Cmd.OS.Init
 
 import RIO
 import RIO.Directory
-import RIO.File
-import RIO.FilePath
-import Nux.Expr
-import Nux.Flake
 import Nux.Options
 import Nux.Util
 
@@ -56,7 +52,7 @@ run InitOptions{..} = do
         logError "The target directory is not empty."
         throwString $ "directory not empty: " <> dir
   logInfo $ "Initializing Nux in directory: " <> fromString dir
-  git "clone" [initOptUrl, dir]
+  void $ git "clone" [initOptUrl, dir]
   logInfo "Nux initialized successfully."
 
 isEmptyDirectory :: HasLogFunc env => FilePath -> RIO env Bool
