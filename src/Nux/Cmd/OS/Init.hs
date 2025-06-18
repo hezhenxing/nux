@@ -7,13 +7,13 @@ module Nux.Cmd.OS.Init
 
 import RIO
 import RIO.Directory
+import RIO.File
+import RIO.FilePath
 import Nux.Options
-import Nux.Util
+import qualified RIO.List as L
 
 data InitOptions = InitOptions
-  { initOptForce :: Bool
-  , initOptDir   :: FilePath
-  , initOptUrl   :: String
+  { initOptUrl      :: String
   } deriving (Show, Eq)
 
 initCmd :: Command (RIO App ())
@@ -25,34 +25,35 @@ initCmd = addCommand
 
 opts :: Parser InitOptions
 opts = InitOptions
-  <$> switch ( long "force"
-             <> short 'f'
-             <> help "Force initialization"
-             )
-  <*> strArgument ( metavar "DIR"
-                 <> value "."
-                 <> help "Directory to initialize Nux in"
-                  )
-  <*> strArgument ( metavar "URL"
+  <$> strOption ( long "url"
                 <> help "URL of the NuxOS repository"
                 <> value "github:hezhenxing/nuxos"
                 )
 
 run :: InitOptions -> RIO App ()
 run InitOptions{..} = do
-  dir <- makeAbsolute initOptDir
-  createDirectoryIfMissing True dir
-  isEmpty <- isEmptyDirectory dir
+  flake <- view flakeL
+  isForce <- view forceL
+  logInfo $ fromString $ "Starting Nux initialization in " <> flake
+  createDirectoryIfMissing True flake
+  isEmpty <- isEmptyDirectory flake
   unless isEmpty $ do
-    if initOptForce
+    if isForce
       then do
-        logWarn "Directory is not empty, Forcing remove existing files..."
-        removeDirectoryRecursive dir
+        logWarn "Directory is not empty, Forcing overwrite existing files..."
       else do
         logError "The target directory is not empty."
-        throwString $ "directory not empty: " <> dir
-  logInfo $ "Initializing Nux in directory: " <> fromString dir
-  void $ git "clone" [initOptUrl, dir]
+        throwString $ "directory not empty: " <> flake
+  logInfo $ fromString $ "Initializing Nux in directory " <> flake
+  let flakeFile = flake </> "flake.nix"
+  writeBinaryFile flakeFile $ fromString $ L.unlines
+    [ "{"
+    , "  inputs.nuxos.url = \"" <> initOptUrl <> "\";"
+    , "  outputs = inputs: inputs.nuxos ./. {"
+    , "    inherit inputs;"
+    , "  };"
+    , "}"
+    ]
   logInfo "Nux initialized successfully."
 
 isEmptyDirectory :: HasLogFunc env => FilePath -> RIO env Bool

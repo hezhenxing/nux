@@ -7,14 +7,10 @@ module Nux.Cmd.PM
   ) where
 
 import RIO
-import RIO.Directory
-import RIO.File
 import RIO.FilePath
-import qualified RIO.List as L
-import Nux.Expr
+import qualified RIO.Map as Map
+import Nux.Host
 import Nux.Options
-import Nux.Pretty
-import Nux.Util
 
 pmCmds :: Command (RIO App ())
 pmCmds = addSubCommands
@@ -23,16 +19,15 @@ pmCmds = addSubCommands
   (do addCmd
       delCmd
       listCmd
-      editCmd
   )
 
 data AddOptions = AddOptions
   { addOptNames   :: [String]
   , addOptGlobal  :: Bool
-  , addOptProgram :: Bool
-  , addOptService :: Bool
-  , addOptEdit    :: Bool
-  , addOptEditor  :: String
+  -- , addOptModule  :: Bool
+  -- , addOptService :: Bool
+  -- , addOptProgram :: Bool
+  -- , addOptPackage :: Bool
   } deriving (Show, Eq)
 
 addCmd :: Command (RIO App ())
@@ -47,77 +42,41 @@ addCmd = addCommand
                         <> short 'g'
                         <> help "Add package globally (system-wide) instead of user-specific"
                           )
-              <*> switch ( long "program"
-                        <> short 'p'
-                        <> help "Add package as a program"
-                        )
-              <*> switch ( long "service"
-                        <> short 's'
-                        <> help "Add package as a service"
-                        )
-              <*> switch ( long "edit"
-                        <> short 'e'
-                        <> help "Edit package after adding"
-                        )
-              <*> strOption ( long "editor"
-                              <> short 'E'
-                              <> value ""
-                              <> help "Editor to use for editing the package file"
-                              )
+              -- <*> switch ( long "module"
+              --           <> short 'm'
+              --           <> help "Add package as a module"
+              --           )
+              -- <*> switch ( long "service"
+              --           <> short 's'
+              --           <> help "Add package as a service"
+              --           )
+              -- <*> switch ( long "program"
+              --           <> short 'p'
+              --           <> help "Add package as a program"
+              --           )
+              -- <*> switch ( long "package"
+              --           <> short 'P'
+              --           <> help "Add normal packages"
+              --           )
   )
 
 runAdd :: AddOptions -> RIO App ()
 runAdd AddOptions{..} = do
   flake <- view flakeL
-  let pkgsDir = if addOptGlobal
-                then flake </> "nix/nixosModules/packages"
-                else flake </> "nix/homeModules/packages"
-  logInfo $ fromString $ "Adding " <> title addOptGlobal
-  forM_ addOptNames $ \pname -> do
-    let pkgFile = pkgsDir </> pname <.> "nix"
-    exist <- doesFileExist pkgFile
-    if exist
-      then do
-        logWarn $ fromString $ "Package already added: " <> pname
-      else do
-        writeBinaryFile pkgFile $ fromString $ content pname
-        nixfmt pkgFile []
-        when addOptEdit $ do
-          logInfo $ fromString $ "Editing package: " <> pname
-          void $ edit addOptEditor pkgFile
-          nixfmt pkgFile []
-        void $ gitC flake "add" [pkgFile]
-  void $ gitC flake "commit" ["-m", L.unlines ("Add " <> title addOptGlobal : addOptNames)]
+  hostname <- view hostL
+  username <- view userL
+  let hostsDir = flake </> "nix/hosts"
+  let hostDir = hostsDir </> hostname
+  let hostFile = hostDir </> "host.json"
+  host <- readHost hostFile
+  logInfo $ fromString $ "Adding " <> title addOptGlobal <> " to host " <> hostname
+  writeHost hostFile $ foldl' (go username) host addOptNames
   logInfo $ fromString $ "Successfully added " <> title addOptGlobal <> "!"
   where
-    content name =
-      if not (addOptProgram || addOptService)
-      then auto addOptGlobal name
-      else if addOptProgram
-        then program name
-        else service name
-    auto global pname = L.unlines
-      [ "{pkgs, lib, options, ...}: let"
-      , "inherit (builtins) hasAttr;"
-      , "in lib.mkMerge [("
-      , "if hasAttr \"" <> pname <> "\" options.services then"
-      , service pname
-      , "else if hasAttr \"" <> pname <> "\" options.programs then"
-      , program pname
-      , "else"
-      , package global pname
-      , ")]"
-      ]
-    service pname =
-      "{ services." <> pname <> ".enable = true; }"
-    program pname =
-      "{ programs." <> pname <> ".enable = true; }"
-    package global pname =
-      "{ " <> packages <> " = [pkgs." <> pname <> "]; }"
-      where
-        packages = if global
-          then "environment.systemPackages"
-          else "home.packages"
+    go username host name =
+      if addOptGlobal
+        then addHostAuto name host
+        else addUserAuto name username host
 
 data DelOptions = DelOptions
   { delOptNames   :: [String]
@@ -141,20 +100,21 @@ delCmd = addCommand
 runDel :: DelOptions -> RIO App ()
 runDel DelOptions{..} = do
   flake <- view flakeL
-  let pkgsDir = if delOptGlobal
-                then flake </> "nix/nixosModules/packages"
-                else flake </> "nix/homeModules/packages"
-  logInfo $ fromString $ "Deleting " <> title delOptGlobal
-  forM_ delOptNames $ \pname -> do
-    let pkgFile = pkgsDir </> pname <.> "nix"
-    exist <- doesFileExist pkgFile
-    if not exist
-      then logWarn $ fromString $ "Package not found: " <> pname
-      else do
-        removeFile pkgFile
-        void $ gitC flake "rm" [pkgFile]
-  void $ gitC flake "commit" ["-m", L.unlines ("Delete " <> title delOptGlobal : delOptNames)]
+  hostname <- view hostL
+  username <- view userL
+  let hostsDir = flake </> "nix/hosts"
+  let hostDir = hostsDir </> hostname
+  let hostFile = hostDir </> "host.json"
+  host <- readHost hostFile
+  logInfo $ fromString $ "Deleting " <> title delOptGlobal <> " from host " <> hostname
+  writeHost hostFile $ foldl' (go username) host delOptNames
   logInfo $ fromString $ "Successfully deleted " <> title delOptGlobal <> "!"
+  where
+    go username host name =
+      if delOptGlobal
+        then delHostAuto name host
+        else delUserAuto name username host
+
 
 data ListOptions = ListOptions
   { listOptGlobal :: Bool
@@ -179,75 +139,24 @@ listCmd = addCommand
 runList :: ListOptions -> RIO App ()
 runList ListOptions{..} = do
   flake <- view flakeL
-  let upkgs = (False, flake </> "nix/homeModules/packages")
-  let gpkgs = (True, flake </> "nix/nixosModules/packages")
-  let dirs =
-        if listOptAll
-          then [gpkgs, upkgs]
-          else if listOptGlobal
-            then [gpkgs]
-            else [upkgs]
-  forM_ dirs $ \(global, pkgsDir) -> do
-    files <- listDirectory pkgsDir
-    let packages = filter (\f -> takeExtension f == ".nix") files
-    if (null packages)
-      then logInfo "No packages found."
-      else do
-        logInfo $ fromString $ "List of " <> title global
-        forM_ packages $ \pkg -> do
-          let pkgName = dropExtension pkg
-          logInfo $ fromString pkgName
+  hostname <- view hostL
+  username <- view userL
+  let hostsDir = flake </> "nix/hosts"
+  let hostDir = hostsDir </> hostname
+  let hostFile = hostDir </> "host.json"
+  host <- readHost hostFile
+  when (listOptGlobal || listOptAll) $ do
+    logInfo "Global packages"
+    forM_ (hostAutos host) $ \name -> do
+      logInfo $ fromString name
+  when (not listOptGlobal || listOptAll) $ do
+    logInfo "User pacakges"
+    case Map.lookup username (hostUsers host) of
+      Nothing -> throwString $ "user not found: " <> username
+      Just user -> forM_ (userAutos user) $ \name -> do
+        logInfo $ fromString name
 
 title :: Bool -> String
 title global = if global
   then "global packages"
   else "user packages"
-
-data EditOptions = EditOptions
-  { editOptName   :: String
-  , editOptGlobal :: Bool
-  , editEditor    :: String
-  } deriving (Show, Eq)
-
-editCmd :: Command (RIO App ())
-editCmd = addCommand
-  "edit"
-  "Edit package in Nux system"
-  runEdit
-  (EditOptions <$> strArgument ( metavar "NAME"
-                                 <> help "Package name to be edited"
-                                 )
-               <*> switch ( long "global"
-                           <> short 'g'
-                           <> help "Edit global (system-wide) package instead of user-specific"
-                             )
-               <*> strOption ( long "editor"
-                              <> short 'E'
-                              <> value ""
-                              <> help "Editor to use for editing the package file"
-                              )
-  )
-
-runEdit :: EditOptions -> RIO App ()
-runEdit EditOptions{..} = do
-  flake <- view flakeL
-  let pkgsDir = if editOptGlobal
-                then flake </> "nix/nixosModules/packages"
-                else flake </> "nix/homeModules/packages"
-  let pkgFile = pkgsDir </> editOptName <.> "nix"
-  exist <- doesFileExist pkgFile
-  if not exist
-    then logError $ fromString $ "Package not found: " <> editOptName
-    else do
-      logInfo $ fromString $ "Editing package: " <> editOptName
-      void $ edit editEditor pkgFile
-      nixfmt pkgFile []
-      status <- gitC flake "status" ["--porcelain", pkgFile]
-      if (L.isPrefixOf "M " (trim status)) then do
-        logInfo $ fromString $ "Changes detected in package: " <> editOptName
-        void $ gitC flake "add" [pkgFile]
-        void $ gitC flake "commit" ["-m", "Edit package: " <> editOptName]
-        logInfo $ fromString $ "Successfully edited package: " <> editOptName
-      else do
-        logInfo $ fromString $ "No changes detected in package: " <> editOptName
-

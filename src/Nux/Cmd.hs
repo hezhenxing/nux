@@ -9,6 +9,8 @@ import Nux.Cmd.Say
 import Nux.Cmd.OS
 import Nux.Cmd.User
 import Nux.Cmd.PM
+import Nux.Cmd.Host
+import Nux.Cmd.FS
 
 nux :: Command (RIO App ())
 nux = do
@@ -16,3 +18,5 @@ nux = do
   osCmds
   userCmds
   pmCmds
+  hostCmds
+  fsCmds

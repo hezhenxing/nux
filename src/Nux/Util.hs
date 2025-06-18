@@ -11,12 +11,29 @@ import qualified RIO.List as L
 import System.Process (system, readProcessWithExitCode)
 import System.Environment (lookupEnv)
 
-exec :: String -> [String] -> RIO env String
+split :: Eq a => a -> [a] -> [[a]]
+split a as = case rest of
+  [] -> [chunk]
+  _:rs -> chunk : split a rs
+  where (chunk, rest) = break (==a) as
+
+nullOr :: Foldable t => t a -> t a -> t a
+nullOr a b = if null a then b else a
+
+splitOptions :: String -> [String]
+splitOptions s
+  = s
+  & split ','
+  & map trim
+  & filter (/= "")
+  & (`nullOr` ["defaults"])
+
+exec :: MonadIO m => String -> [String] -> m String
 exec cmd args = do
   (exitCode, out, err) <- liftIO $ readProcessWithExitCode cmd args ""
   case exitCode of
     ExitSuccess -> return out
-    ExitFailure rc -> throwString err
+    ExitFailure _ -> throwString err
 
 sudo :: String -> [String] -> RIO env String
 sudo cmd args = exec "sudo" (cmd : args)
@@ -39,6 +56,9 @@ mounted path = do
   mnts <- mounts
   return $ any (L.isPrefixOf path) mnts
 
+getHostname :: MonadIO m => m String
+getHostname = trim <$> exec "hostname" []
+
 nixfmt :: String -> [String] -> RIO env ()
 nixfmt f opts = void $ exec "nixfmt" (f : opts)
 
@@ -48,6 +68,25 @@ nix cmd args = exec "nix" (cmd : args)
 nixrun :: [String] -> RIO env String
 nixrun args = exec "nix" ("run" : args)
 
+nixeval :: [String] -> RIO env String
+nixeval args = exec "nix" ("eval" : args)
+
+nixosPkgNames :: String -> RIO env String
+nixosPkgNames osname =
+  nix "eval" [ "--json"
+             ,"./nuxos#nixosConfigurations." <> osname <> ".pkgs"
+             , "--apply"
+             , "builtins.attrNames"
+             ]
+
+nixosOptNames :: String -> RIO env String
+nixosOptNames osname =
+  nix "eval" [ "--json"
+             ,"./nuxos#nixosConfigurations." <> osname <> ".options"
+             , "--apply"
+             , "builtins.attrNames"
+             ]
+
 nixosRebuild :: String -> [String] -> RIO env ()
 nixosRebuild cmd args = void $ sudo "nixos-rebuild" (cmd : args)
 
@@ -56,7 +95,8 @@ nixosSwitch args = nixosRebuild "switch" args
 
 nixosOptionValue :: String -> String -> RIO env String
 nixosOptionValue osname optname =
-  nix "eval" ["--raw", nixosOptionName osname optname]
+  nix "eval" ["--json", nixosOptionName osname optname]
+  <&> trim
 
 nixosOptionName :: String -> String -> String
 nixosOptionName osname optname =
@@ -84,10 +124,10 @@ trim :: String -> String
 trim = trimL . trimR
 
 mkfs :: Bool -> String -> String -> RIO env ()
-mkfs force fs dev = void $ sudo cmd args
+mkfs isForce fs dev = void $ sudo cmd args
   where
     cmd = "mkfs." <> fs
-    args = if force
+    args = if isForce
       then ["-f", dev]
       else [dev]
 

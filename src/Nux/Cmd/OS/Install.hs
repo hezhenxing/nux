@@ -9,6 +9,7 @@ where
 
 import RIO
 import RIO.File
+import RIO.FilePath
 import Nux.Options
 import Nux.Util
 
@@ -23,21 +24,23 @@ installCmd = addCommand
                   <*> switch ( long "format"
                                  <> help "Format the root device before installation"
                                  )
-                  <*> switch ( long "force"
-                                 <> help "Force formatting the root device"
-                                 )
   )
 
 data InstallOptions = InstallOptions
   { installOptRootDev :: String
   , installOptFormat  :: Bool
-  , installOptForce   :: Bool
   } deriving (Show, Eq)
 
 runInstall :: InstallOptions -> RIO App ()
 runInstall InstallOptions{..} = do
+  flake <- view flakeL
+  hostname <- view hostL
+  isForce <- view forceL
+  let hostDir = flake </> "nix/hosts" </> hostname
+  let hwFile = hostDir </> "hardware.nix"
   logInfo $ "Installing Nux system to " <> fromString installOptRootDev
-  efiMount <- nixosOptionValue "nux" "boot.loader.efi.efiSysMountPoint"
+  --efiMount <- nixosOptionValue "nux" "boot.loader.efi.efiSysMountPoint"
+  let efiMount = "/boot/efi"
   efiDev <- getEfiDevice
   mountpoint (mnt <> efiMount) >>= \case
     False -> return ()
@@ -51,7 +54,7 @@ runInstall InstallOptions{..} = do
       umount mnt
   when installOptFormat $ do
     logInfo $ fromString $ "Formatting " <> installOptRootDev
-    mkfs installOptForce "btrfs" installOptRootDev
+    mkfs isForce "btrfs" installOptRootDev
   whenM (mounted installOptRootDev) $ do
     logError $ fromString $ "Root device already mounted: " <> installOptRootDev <> ", please unmount before installation."
     exit 1
@@ -60,20 +63,17 @@ runInstall InstallOptions{..} = do
   void $ sudo "mkdir" ["-p", (mnt <> efiMount)]
   logInfo $ fromString $ "Mounting " <> efiDev <> " to " <> (mnt <> efiMount)
   mount efiDev (mnt <> efiMount)
-  void $ sudo "mkdir" [mnt <> "/etc"]
-  logInfo $ fromString $ "Copying Nux system to " <> mnt
-  void $ sudo "cp" ["-r", "./nuxos", mnt <> "/etc"]
   logInfo $ fromString $ "Generating hardware configuration"
   hwcfg <- sudo "nixos-generate-config"
     [ "--root", mnt
     , "--show-hardware-config"
     ]
-  void $ sudo "mkdir" [mnt <> "/tmp"]
-  void $ sudo "chmod" ["0777", mnt <> "/tmp"]
-  writeBinaryFile (mnt <> "/tmp" <> "/hardware.nix") $ fromString hwcfg
-  void $ sudo "mv" [mnt <> "/tmp/hardware.nix", mnt <> "/etc/nuxos/nix/nixos/nux/hardware.nix"]
+  writeBinaryFile hwFile $ fromString hwcfg
+  void $ sudo "mkdir" [mnt </> "etc"]
+  logInfo $ fromString $ "Copying Nux system configuration to " <> mnt
+  void $ sudo "cp" ["-r", flake, mnt </> "etc/nuxos"]
   logInfo $ fromString $ "Installing Nux system to " <> mnt
-  void $ sudo "nixos-install" ["--flake", mnt <> "/etc/nuxos#nux", "--root", mnt]
+  void $ sudo "nixos-install" ["--flake", mnt </> "etc/nuxos#" <> hostname, "--root", mnt]
   logInfo $ fromString $ "Congradulations! Installation succeeded!"
   umount (mnt <> efiMount)
   umount mnt

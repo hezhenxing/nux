@@ -66,8 +66,8 @@ instance Show NixExpr where
   show (NixParen expr) = "(" ++ show expr ++ ")"
   show (NixLetIn bindings body) =
     "let " ++ (showAttrs' bindings) ++ "in " ++ show body
-  show (NixIndented lines) =
-    "''\n" ++ unlines lines ++ "''"
+  show (NixIndented ls) =
+    "''\n" ++ unlines ls ++ "''"
   show (NixInherit Nothing names) =
     "inherit " ++ unwords names ++ ";"
   show (NixInherit (Just name) names) =
@@ -92,7 +92,7 @@ instance Pretty NixExpr where
     (encloseWith "let" "in" (map prettyBinding bindings)) <+> pretty body
     where
       prettyBinding (name, expr) = pretty name <+> "=" <+> pretty expr <> ";"
-  pretty (NixIndented lines) = encloseWith "''" "''" $ map pretty lines
+  pretty (NixIndented ls) = encloseWith "''" "''" $ map pretty ls
   pretty (NixInherit Nothing names) =
     "inherit" <+> hsep (map pretty names) <> ";"
   pretty (NixInherit (Just name) names) =
@@ -129,8 +129,8 @@ instance ToNixExpr a => ToNixExpr [(String, a)] where
   toNixExpr = NixAttrs . fmap (\(k, v) -> (k, toNixExpr v))
 
 writeShellScriptBin :: String -> [String] -> NixExpr
-writeShellScriptBin name lines =
-  NixCall "pkgs.writeShellScriptBin" [NixStr name, (NixIndented lines)]
+writeShellScriptBin name ls =
+  NixCall "pkgs.writeShellScriptBin" [NixStr name, (NixIndented ls)]
 
 
 nuxFlake :: NixExpr

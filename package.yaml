@@ -1,17 +1,19 @@
-name:               nux
-version:            0.1.0.0
-license:            BSD3
-author:             He Zhenxing
-maintainer:         hezhenxing@gmail.com
-copyright:          2025 He Zhenxing
-description:        A Haskell executable with Nix Flake
+name: nux
+version: 0.1.0.0
+license: BSD3
+author: He Zhenxing
+maintainer: hezhenxing@gmail.com
+copyright: 2025 He Zhenxing
+description: A Haskell executable with Nix Flake
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
 dependencies:
   - base >= 4.7 && < 5
+  - aeson
+  - aeson-pretty
   - data-default
   - optparse-simple
   - prettyprinter

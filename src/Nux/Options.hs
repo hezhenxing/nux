@@ -5,6 +5,10 @@ module Nux.Options
   , Options(..)
   , App(..)
   , HasFlake(..)
+  , HasForce(..)
+  , HasSystem(..)
+  , HasHost(..)
+  , HasUser(..)
   , Command
   , addSubCommandsWithOptions
   ) where
@@ -17,7 +21,11 @@ import Control.Monad.Trans.Writer
 
 data Options = Options
   { optVerbose :: Bool
+  , optForce   :: Bool
   , optFlake   :: FilePath
+  , optSystem  :: String
+  , optHost    :: String
+  , optUser    :: String
   } deriving (Show, Eq)
 
 data App = App
@@ -36,6 +44,30 @@ class HasFlake env where
 instance HasFlake App where
   flakeL = lens (optFlake . appOptions)
     (\x y -> x { appOptions = (appOptions x) { optFlake = y } })
+
+class HasForce env where
+  forceL :: Lens' env Bool
+instance HasForce App where
+  forceL = lens (optForce . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optForce = y } })
+
+class HasSystem env where
+  systemL :: Lens' env String
+instance HasSystem App where
+  systemL = lens (optSystem . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optSystem = y } })
+
+class HasHost env where
+  hostL :: Lens' env String
+instance HasHost App where
+  hostL = lens (optHost . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optHost = y } })
+
+class HasUser env where
+  userL :: Lens' env String
+instance HasUser App where
+  userL = lens (optUser . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optUser = y } })
 
 type Command a =
   ExceptT a (Writer (Mod CommandFields a)) ()

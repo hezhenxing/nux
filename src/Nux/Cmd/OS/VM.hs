@@ -20,9 +20,10 @@ vmCmd = addCommand
 runvm :: RIO App ()
 runvm = do
   flake <- view flakeL
-  logInfo $ "Building NuxOS VM from flake: " <> fromString flake
-  tryAny (nixrun [flake <> "#nixosConfigurations.nuxos.config.system.build.vm"]) >>= \case
+  hostname <- view hostL
+  logInfo $ fromString $ "Building NuxOS VM of " <> hostname <> " from flake " <> flake
+  tryAny (nixrun [flake <> "#nixosConfigurations." <> hostname <> ".config.system.build.vm"]) >>= \case
     Left e -> do
-      logError $ fromString $ "Failed to vm NuxOS: " <> displayException e
+      logError $ fromString $ "Failed to start vm: " <> displayException e
     Right _ -> do
       logInfo "Start VM of NuxOS configuration successfully."
