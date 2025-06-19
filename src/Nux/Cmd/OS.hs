@@ -15,6 +15,7 @@ import Nux.Cmd.OS.Switch
 import Nux.Cmd.OS.Install
 import Nux.Cmd.OS.VM
 import Nux.Cmd.OS.Pull
+import Nux.Cmd.OS.Update
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
@@ -26,6 +27,7 @@ osCmds = addSubCommands
       addCmd
       removeCmd
       switchCmd
+      updateCmd
       vmCmd
   )
 

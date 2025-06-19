@@ -18,8 +18,10 @@ switchCmd = addCommand
   (pure ())
 
 runSwitch :: RIO App ()
-runSwitch =
-  tryAny (nixosSwitch ["--flake", "./nuxos#nux"]) >>= \case
+runSwitch = do
+  flake <- view flakeL
+  hostname <- view hostL
+  tryAny (nixosSwitch ["--flake", flake <> "#" <> hostname]) >>= \case
     Left e -> do
       logError $ fromString $ "Failed to switch NuxOS: " <> displayException e
     Right _ -> do

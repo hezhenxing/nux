@@ -102,6 +102,9 @@ nixosOptionName :: String -> String -> String
 nixosOptionName osname optname =
   "./nuxos#nixosConfigurations." <> osname <> ".options." <> optname <> ".value"
 
+nixFlake :: String -> [String] -> RIO env String
+nixFlake cmd args = nix "flake" (cmd:args)
+
 getEfiDevice :: RIO env String
 getEfiDevice =
   trim <$> sudo "blkid" [ "--list-one"
