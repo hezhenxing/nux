@@ -7,9 +7,11 @@ module Nux.Cmd.User
   ) where
 
 import RIO
+import RIO.Directory
+import RIO.File
 import RIO.FilePath
-import qualified RIO.Map as Map
-import Nux.Host
+import qualified RIO.List as L
+import Nux.User
 import Nux.Options
 import Nux.Util
 
@@ -64,20 +66,26 @@ addCmd = addCommand
 runAdd :: AddOptions -> RIO App ()
 runAdd AddOptions{..} = do
   flake <- view flakeL
-  hostname <- view hostL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  host <- readHost hostFile
-  case Map.lookup addOptUsername (hostUsers host) of
-    Just _ -> do
-      throwString $ "User already exists: " <> addOptUsername
-    Nothing -> do
-      let user = emptyUser { userDescription = addOptDescription
-                           , userEmail       = addOptEmail
-                           , userUid         = if addOptUid == 0 then Nothing else Just addOptUid
-                           , userGid         = if addOptGid == 0 then Nothing else Just addOptGid
-                           }
-      writeHost hostFile $ host { hostUsers = Map.insert addOptUsername user (hostUsers host)}
-      logInfo $ fromString $ "Successfully added user " <> addOptUsername <> "!"
+  isForce <- view forceL
+  let userDir = flake </> "nix/users" </> addOptUsername
+  let nixFile = userDir </> "default.nix"
+  let jsonFile = userDir </> "user.json"
+  exists <- doesPathExist nixFile
+  if exists && (not isForce)
+  then
+    throwString $ "User already exists: " <> addOptUsername
+  else do
+    let user = emptyUser { userDescription = addOptDescription
+                         , userEmail       = addOptEmail
+                         , userUid         = if addOptUid == 0 then Nothing else Just addOptUid
+                         , userGid         = if addOptGid == 0 then Nothing else Just addOptGid
+                         }
+    createDirectoryIfMissing True userDir
+    writeBinaryFile nixFile $ fromString $ L.unlines
+      [ "with builtins; fromJSON (readFile ./user.json)"
+      ]
+    writeUser jsonFile user
+    logInfo $ fromString $ "Successfully added user " <> addOptUsername <> "!"
 
 data DelOptions = DelOptions
   { delOptUsername :: String
@@ -96,15 +104,17 @@ delCmd = addCommand
 runDel :: DelOptions -> RIO App ()
 runDel DelOptions{..} = do
   flake <- view flakeL
-  hostname <- view hostL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  host <- readHost hostFile
-  case Map.lookup delOptUsername (hostUsers host) of
-    Nothing -> do
-      throwString $ "User not exists: " <> delOptUsername
-    Just _ -> do
-      writeHost hostFile $ host { hostUsers = Map.delete delOptUsername (hostUsers host)}
-      logInfo $ fromString $ "Successfully deleted user " <> delOptUsername <> "!"
+  let userDir = flake </> "nix/users" </> delOptUsername
+  let nixFile = userDir <> "default.nix"
+  let jsonFile = userDir <> "user.json"
+  exists <- doesPathExist userDir
+  if exists
+  then do
+    throwString $ "User not exists: " <> delOptUsername
+  else do
+    removeFile nixFile
+    removeFile jsonFile
+    logInfo $ fromString $ "Successfully deleted user " <> delOptUsername <> "!"
 
 listCmd :: Command (RIO App ())
 listCmd = addCommand
@@ -116,11 +126,14 @@ listCmd = addCommand
 runList :: RIO App ()
 runList = do
   flake <- view flakeL
-  hostname <- view hostL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  host <- readHost hostFile
-  logInfo $ fromString $ "Users in host " <> hostname
-  mapM_ (logInfo . fromString) (Map.keys (hostUsers host))
+  let usersDir = flake </> "nix/users"
+  names <- listDirectory usersDir
+  logInfo "Users in configuration"
+  forM_ names $ \name -> do
+    let nixFile = usersDir </> name </> "default.nix"
+    exists <- doesFileExist nixFile
+    when exists $
+      logInfo $ fromString $ name
 
 data EditOptions = EditOptions
   { editOptNewUid :: Int
@@ -169,18 +182,19 @@ editCmd = addCommand
 runEdit :: EditOptions -> RIO App ()
 runEdit EditOptions{..} = do
   flake <- view flakeL
-  hostname <- view hostL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  host <- readHost hostFile
-  case Map.lookup editOptUser (hostUsers host) of
-    Nothing -> throwString $ "User not found: " <> editOptUser
-    Just u -> do
-      let user = u { userUid = editOptNewUid `zeroOrJust` userUid u
-                   , userGid = editOptNewGid `zeroOrJust` userGid u
-                   , userDescription = editOptNewDescription `nullOr` userDescription u
-                   , userEmail = editOptNewEmail `nullOr` userEmail u
-                   }
-      writeHost hostFile $ host { hostUsers = Map.insert editOptUser user (hostUsers host) }
-      logInfo $ fromString $ "Successfully updated user " <> editOptUser <> "!"
+  let jsonFile = flake </> "nix/users" </> editOptUser </> "user.json"
+  exists <- doesFileExist jsonFile
+  if exists
+  then do
+    u <- readUser jsonFile
+    let user = u { userUid = editOptNewUid `zeroOrJust` userUid u
+                 , userGid = editOptNewGid `zeroOrJust` userGid u
+                 , userDescription = editOptNewDescription `nullOr` userDescription u
+                 , userEmail = editOptNewEmail `nullOr` userEmail u
+                 }
+    writeUser jsonFile user
+    logInfo $ fromString $ "Successfully updated user " <> editOptUser <> "!"
+  else
+    throwString $ "User not found: " <> editOptUser
   where
     zeroOrJust a b = if a == 0 then b else Just a

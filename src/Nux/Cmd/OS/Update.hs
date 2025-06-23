@@ -20,5 +20,5 @@ runUpdate :: RIO App ()
 runUpdate = do
   flake <- view flakeL
   logInfo $ fromString $ "Updating flake in " <> flake
-  nixFlake "update" ["--flake", flake]
+  void $ nixFlake "update" ["--flake", flake]
   logInfo $ fromString $ "Successfully updated flake in " <> flake <> "!"
