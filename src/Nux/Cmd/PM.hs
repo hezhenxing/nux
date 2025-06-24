@@ -7,12 +7,10 @@ module Nux.Cmd.PM
   ) where
 
 import RIO
-import RIO.Directory
-import RIO.FilePath
-import qualified RIO.Map as Map
 import Nux.Host
 import Nux.Options
 import Nux.User
+import Nux.PM
 
 pmCmds :: Command (RIO App ())
 pmCmds = addSubCommands
@@ -67,16 +65,10 @@ runAdd AddOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  let userFile = flake </> "nix/users" </> username </> "user.json"
   logInfo $ fromString $ "Adding " <> title addOptGlobal <> " to host " <> hostname
   if addOptGlobal
-  then do
-    host <- readHost hostFile
-    writeHost hostFile $ foldl' (flip addHostAuto) host addOptNames
-  else do
-    user <- readUser userFile
-    writeUser userFile $ foldl' (flip addUserAuto) user addOptNames
+  then addHostAutos flake hostname addOptNames
+  else addUserAutos flake username addOptNames
   logInfo $ fromString $ "Successfully added " <> title addOptGlobal <> "!"
 
 data DelOptions = DelOptions
@@ -103,16 +95,10 @@ runDel DelOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  let userFile = flake </> "nix/users" </> username </> "user.json"
   logInfo $ fromString $ "Deleting " <> title delOptGlobal <> " from host " <> hostname
   if delOptGlobal
-  then do
-    host <- readHost hostFile
-    writeHost hostFile $ foldl' (flip delHostAuto) host delOptNames
-  else do
-    user <- readUser userFile
-    writeUser userFile $ foldl' (flip delUserAuto) user delOptNames
+  then delHostAutos flake hostname delOptNames
+  else delUserAutos flake username delOptNames
   logInfo $ fromString $ "Successfully deleted " <> title delOptGlobal <> "!"
 
 data ListOptions = ListOptions
@@ -140,21 +126,20 @@ runList ListOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  let userFile = flake </> "nix/users" </> username </> "user.json"
-  host <- readHost hostFile
   when (listOptGlobal || listOptAll) $ do
     logInfo "Global packages"
-    forM_ (hostAutos host) $ \name -> do
-      logInfo $ fromString $ "  " <> name
+    exists <- doesHostExist flake hostname
+    if exists
+    then
+      listHostMSPP flake hostname
+    else
+      throwString $ "Host not found: " <> hostname
   when (not listOptGlobal || listOptAll) $ do
     logInfo "User pacakges"
-    exists <- doesFileExist userFile
+    exists <- doesUserExist flake username
     if exists
-    then do
-      user <- readUser userFile
-      forM_ (userAutos user) $ \name -> do
-        logInfo $ fromString $ "  " <> name
+    then
+      listUserMSPP flake username
     else
       throwString $ "User not found: " <> username
 

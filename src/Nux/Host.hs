@@ -4,12 +4,13 @@
 module Nux.Host where
 
 import RIO
+import RIO.Directory
 import RIO.File
+import RIO.FilePath
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import qualified RIO.ByteString.Lazy as BL
 import qualified RIO.List as L
-import qualified RIO.Map as Map
 
 data FileSystem = FileSystem
   { fsDevice :: String
@@ -65,6 +66,21 @@ instance ToJSON Host where
 
 type Hosts = Map String Host
 
+hostsDirPath :: FilePath -> FilePath
+hostsDirPath flake = flake </> "nix/hosts"
+
+hostDirPath :: FilePath -> String -> FilePath
+hostDirPath flake host = hostsDirPath flake </> host
+
+hostNixFilePath :: FilePath -> String -> FilePath
+hostNixFilePath flake host = hostDirPath flake host </> "default.nix"
+
+hostFilePath :: FilePath -> String -> FilePath
+hostFilePath flake host = hostDirPath flake host </> "host.json"
+
+doesHostExist :: FilePath -> String -> RIO env Bool
+doesHostExist flake hostname = doesFileExist $ hostFilePath flake hostname
+
 writeHost :: FilePath -> Host -> RIO env ()
 writeHost path host = do
   writeBinaryFile path $ BL.toStrict $ encodePretty host
@@ -76,9 +92,15 @@ readHost path = do
     Left err -> throwString $ "Failed to parse host file: " <> err
     Right host -> return host
 
+readFlakeHost :: FilePath -> String -> RIO env Host
+readFlakeHost flake hostname = readHost $ hostFilePath flake hostname
+
+writeFlakeHost :: FilePath -> String -> Host -> RIO env ()
+writeFlakeHost flake hostname host = writeHost (hostFilePath flake hostname) host
+
 addHostModule :: String -> Host -> Host
-addHostModule mod host = host
-  { hostModules = mod : hostModules host
+addHostModule m host = host
+  { hostModules = m : hostModules host
   }
 
 addHostService :: String -> Host -> Host
@@ -102,8 +124,8 @@ addHostAuto auto host = host
   }
 
 delHostModule :: String -> Host -> Host
-delHostModule mod host@Host{..} =
-  host { hostModules = L.delete mod hostModules }
+delHostModule m host@Host{..} =
+  host { hostModules = L.delete m hostModules }
 
 delHostService :: String -> Host -> Host
 delHostService svc host@Host{..} =

@@ -4,7 +4,9 @@
 module Nux.User where
 
 import RIO
+import RIO.Directory
 import RIO.File
+import RIO.FilePath
 import Data.Aeson
 import Data.Aeson.Encode.Pretty
 import qualified RIO.ByteString.Lazy as BL
@@ -49,6 +51,21 @@ instance ToJSON User where
 
 type Users = Map String User
 
+usersDirPath :: FilePath -> FilePath
+usersDirPath flake = flake </> "nix/users"
+
+userDirPath :: FilePath -> String -> FilePath
+userDirPath flake user = usersDirPath flake </> user
+
+userNixFilePath :: FilePath -> String -> FilePath
+userNixFilePath flake user = userDirPath flake user </> "default.nix"
+
+userFilePath :: FilePath -> String -> FilePath
+userFilePath flake user = userDirPath flake user </> "user.json"
+
+doesUserExist :: FilePath -> String -> RIO env Bool
+doesUserExist flake username = doesFileExist $ userFilePath flake username
+
 writeUser :: FilePath -> User -> RIO env ()
 writeUser path user = do
   writeBinaryFile path $ BL.toStrict $ encodePretty user
@@ -59,6 +76,12 @@ readUser path = do
   case eitherDecodeStrictText content of
     Left err -> throwString $ "Failed to parse user file: " <> err
     Right user -> return user
+
+readFlakeUser :: FilePath -> String -> RIO env User
+readFlakeUser flake username = readUser $ userFilePath flake username
+
+writeFlakeUser :: FilePath -> String -> User -> RIO env ()
+writeFlakeUser flake username user = writeUser (userFilePath flake username) user
 
 emptyUser :: User
 emptyUser = User
