@@ -28,13 +28,13 @@ instance FromJSON User where
   parseJSON = withObject "User" $ \v -> User
     <$> v .:? "uid"
     <*> v .:? "gid"
-    <*> v .: "description"
-    <*> v .: "email"
-    <*> v .: "autos"
-    <*> v .: "modules"
-    <*> v .: "services"
-    <*> v .: "programs"
-    <*> v .: "packages"
+    <*> v .:? "description" .!= ""
+    <*> v .:? "email"       .!= ""
+    <*> v .:? "autos"       .!= []
+    <*> v .:? "modules"     .!= []
+    <*> v .:? "services"    .!= []
+    <*> v .:? "programs"    .!= []
+    <*> v .:? "packages"    .!= []
 
 instance ToJSON User where
   toJSON (User uid gid desc email autos mods svcs progs pkgs) = object

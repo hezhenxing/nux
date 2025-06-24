@@ -13,55 +13,55 @@ import qualified RIO.ByteString.Lazy as BL
 import qualified RIO.List as L
 
 data FileSystem = FileSystem
-  { fsDevice :: String
-  , fsType   :: String
+  { fsDevice  :: String
+  , fsType    :: String
   , fsOptions :: [String]
   } deriving (Show, Eq)
 
 instance FromJSON FileSystem where
   parseJSON = withObject "FileSystem" $ \v -> FileSystem
-    <$> v .: "device"
-    <*> v .: "fsType"
-    <*> v .: "options"
+    <$> v .:  "device"
+    <*> v .:? "fsType"  .!= "auto"
+    <*> v .:? "options" .!= [ "defaults" ]
 
 instance ToJSON FileSystem where
   toJSON (FileSystem dev typ opts) = object
-    [ "device" .= dev
-    , "fsType" .= typ
+    [ "device"  .= dev
+    , "fsType"  .= typ
     , "options" .= opts
     ]
 
 type FileSystems = Map String FileSystem
 
 data Host = Host
-  { hostSystem :: String
+  { hostSystem      :: String
   , hostFileSystems :: FileSystems
-  , hostAutos :: [String]
-  , hostModules :: [String]
-  , hostServices :: [String]
-  , hostPrograms :: [String]
-  , hostPackages :: [String]
+  , hostAutos       :: [String]
+  , hostModules     :: [String]
+  , hostServices    :: [String]
+  , hostPrograms    :: [String]
+  , hostPackages    :: [String]
   } deriving (Show, Eq)
 
 instance FromJSON Host where
   parseJSON = withObject "Host" $ \v -> Host
-    <$> v .: "system"
-    <*> v .: "fileSystems"
-    <*> v .: "autos"
-    <*> v .: "modules"
-    <*> v .: "services"
-    <*> v .: "programs"
-    <*> v .: "packages"
+    <$> v .:  "system"
+    <*> v .:? "fileSystems" .!= mempty
+    <*> v .:? "autos"       .!= []
+    <*> v .:? "modules"     .!= []
+    <*> v .:? "services"    .!= []
+    <*> v .:? "programs"    .!= []
+    <*> v .:? "packages"    .!= []
 
 instance ToJSON Host where
   toJSON (Host sys fs autos mods svcs progs pkgs) = object
-    [ "system" .= sys
+    [ "system"      .= sys
     , "fileSystems" .= fs
-    , "autos" .= autos
-    , "modules" .= mods
-    , "services" .= svcs
-    , "programs" .= progs
-    , "packages" .= pkgs
+    , "autos"       .= autos
+    , "modules"     .= mods
+    , "services"    .= svcs
+    , "programs"    .= progs
+    , "packages"    .= pkgs
     ]
 
 type Hosts = Map String Host
