@@ -1,6 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module Nux.PM where
 
 import           Data.Aeson
@@ -57,11 +57,11 @@ nixosOptItems flake host opt = do
     nix "eval" [ "--json"
                , flake <> "#nixosConfigurations." <> host <> ".options." <> opt
                , "--apply"
-               , "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or true; enable = if visible then v.enable.value or false else false; })"
+               , "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or (hasAttr \"enable\" v); enable = if visible then v.enable.value or false else false; })"
                ]
   case eitherDecode (fromString content) of
     Left err -> throwString err
-    Right r  -> return r
+    Right r  -> return (Map.filter oiVisible r)
 
 nixosServices :: FilePath -> String -> RIO env (Map String OptionItem)
 nixosServices flake host = nixosOptItems flake host "services"
@@ -244,3 +244,45 @@ listUserAutos flake username = do
   user <- readFlakeUser flake username
   forM_ (userAutos user) $ \auto -> do
     logInfo $ fromString $ "  " <> auto
+
+searchHost :: HasLogFunc env => FilePath -> String -> String -> RIO env ()
+searchHost flake hostname query = do
+  modules <- nixosModules flake
+  services <- nixosServices flake hostname
+  programs <- nixosPrograms flake hostname
+  packages <- nixosPackages flake hostname
+  let matchModules = filter (L.isInfixOf query) modules
+      matchServices = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) services
+      matchPrograms = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) programs
+      matchPackages = filter (L.isInfixOf query) packages
+  let results = map (, "module") matchModules
+        ++ map (, "service") matchServices
+        ++ map (, "program") matchPrograms
+        ++ map (, "package") matchPackages
+  if null results
+  then do
+    logInfo "No matching results found."
+  else do
+    forM_ results $ \(name, kind) -> do
+      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ")"
+
+searchUser :: HasLogFunc env => FilePath -> String -> String -> RIO env ()
+searchUser flake username query = do
+  modules <- homeModules flake
+  services <- homeServices flake username
+  programs <- homePrograms flake username
+  packages <- homePackages flake username
+  let matchModules = filter (L.isInfixOf query) modules
+      matchServices = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) services
+      matchPrograms = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) programs
+      matchPackages = filter (L.isInfixOf query) packages
+  let results = map (, "module") matchModules
+        ++ map (, "service") matchServices
+        ++ map (, "program") matchPrograms
+        ++ map (, "package") matchPackages
+  if null results
+  then do
+    logInfo "No matching results found."
+  else do
+    forM_ results $ \(name, kind) -> do
+      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ")"

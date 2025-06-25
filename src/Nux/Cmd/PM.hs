@@ -19,6 +19,7 @@ pmCmds = addSubCommands
   (do addCmd
       delCmd
       listCmd
+      searchCmd
   )
 
 data AddOptions = AddOptions
@@ -83,11 +84,11 @@ runDel DelOptions{..} = do
   then do
     logInfo $ fromString $ "Deleting packages from host " <> hostname
     delHostAutos flake hostname delOptNames
-    logInfo $ fromString $ "Successfully deleted host packages!"
+    logInfo "Successfully deleted host packages!"
   else do
     logInfo $ fromString $ "Deleting packages from user " <> username
     delUserAutos flake username delOptNames
-    logInfo $ fromString $ "Successfully deleted user packages!"
+    logInfo "Successfully deleted user packages!"
 
 data ListOptions = ListOptions
   { listOptGlobal :: Bool
@@ -130,3 +131,46 @@ runList ListOptions{..} = do
       listUserAutos flake username
     else
       throwString $ "User not found: " <> username
+
+data SearchOptions = SearchOptions
+  { searchOptGlobal :: Bool
+  , searchOptQuery  :: String
+  } deriving (Show, Eq)
+
+searchCmd :: Command (RIO App ())
+searchCmd = addCommand
+  "search"
+  "Search packages in Nux system"
+  runSearch
+  (SearchOptions
+    <$> switch ( long "global"
+              <> short 'g'
+              <> help "Search global (system-wide) packages instead of user-specific"
+               )
+    <*> strArgument ( metavar "QUERY"
+                   <> help "Query string to search for packages"
+                    )
+  )
+
+runSearch :: SearchOptions -> RIO App ()
+runSearch SearchOptions{..} = do
+  flake <- view flakeL
+  hostname <- view hostL
+  username <- view userL
+  if searchOptGlobal
+    then do
+      exists <- doesHostExist flake hostname
+      if exists
+        then do
+          logInfo "Searching in global packages"
+          searchHost flake hostname searchOptQuery
+      else do
+        logError $ fromString $ "Host not found: " <> hostname
+  else do
+    existsUser <- doesUserExist flake username
+    if existsUser
+      then do
+        logInfo "Searching in user packages"
+        searchUser flake username searchOptQuery
+      else do
+        logError $ fromString $ "User not found: " <> username
