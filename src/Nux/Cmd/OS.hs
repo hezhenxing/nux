@@ -1,28 +1,26 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.OS
   ( osCmds
   ) where
 
-import RIO
-import RIO.Directory
-import RIO.File
-import RIO.FilePath
-import Nux.Options
-import Nux.Cmd.OS.Init
-import Nux.Cmd.OS.Switch
-import Nux.Cmd.OS.Install
-import Nux.Cmd.OS.VM
-import Nux.Cmd.OS.Pull
-import Nux.Cmd.OS.Update
+import           Nux.Cmd.OS.Init
+import           Nux.Cmd.OS.Install
+import           Nux.Cmd.OS.Switch
+import           Nux.Cmd.OS.Update
+import           Nux.Cmd.OS.VM
+import           Nux.Options
+import           RIO
+import           RIO.Directory
+import           RIO.File
+import           RIO.FilePath
 
 osCmds :: Command (RIO App ())
 osCmds = addSubCommands
   "os"
   "OS commands"
   (do initCmd
-      pullCmd
       installCmd
       addCmd
       removeCmd
