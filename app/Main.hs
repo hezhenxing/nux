@@ -8,12 +8,13 @@ import RIO.Process
 import Nux.Cmd
 import Nux.Options
 import Nux.Util (getEnvDefault, getHostname)
+import System.Posix.User (getLoginName)
 import Paths_nux (version)
 
 main :: IO ()
 main = do
   hostname <- getHostname
-  username <- getEnvDefault "USER" "root"
+  username <- getLoginName
   nuxosFlake <- getEnvDefault "NUXOS_FLAKE" "/etc/nuxos"
   (options, cmd) <- simpleOptions
     $(simpleVersion version)
