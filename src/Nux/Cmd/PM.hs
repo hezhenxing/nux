@@ -65,11 +65,15 @@ runAdd AddOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
-  logInfo $ fromString $ "Adding " <> title addOptGlobal <> " to host " <> hostname
   if addOptGlobal
-  then addHostAutos flake hostname addOptNames
-  else addUserAutos flake username addOptNames
-  logInfo $ fromString $ "Successfully added " <> title addOptGlobal <> "!"
+  then do
+    logInfo $ fromString $ "Adding packages to host " <> hostname
+    addHostAutos flake hostname addOptNames
+    logInfo $ fromString $ "Successfully added host packages!"
+  else do
+    logInfo $ fromString $ "Adding packages to user " <> username
+    addUserAutos flake username addOptNames
+    logInfo $ fromString $ "Successfully added user packages!"
 
 data DelOptions = DelOptions
   { delOptNames   :: [String]
@@ -95,11 +99,15 @@ runDel DelOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
-  logInfo $ fromString $ "Deleting " <> title delOptGlobal <> " from host " <> hostname
   if delOptGlobal
-  then delHostAutos flake hostname delOptNames
-  else delUserAutos flake username delOptNames
-  logInfo $ fromString $ "Successfully deleted " <> title delOptGlobal <> "!"
+  then do
+    logInfo $ fromString $ "Deleting packages from host " <> hostname
+    delHostAutos flake hostname delOptNames
+    logInfo $ fromString $ "Successfully deleted host packages!"
+  else do
+    logInfo $ fromString $ "Deleting packages from user " <> username
+    delUserAutos flake username delOptNames
+    logInfo $ fromString $ "Successfully deleted user packages!"
 
 data ListOptions = ListOptions
   { listOptGlobal :: Bool
@@ -142,8 +150,3 @@ runList ListOptions{..} = do
       listUserMSPP flake username
     else
       throwString $ "User not found: " <> username
-
-title :: Bool -> String
-title global = if global
-  then "global packages"
-  else "user packages"
