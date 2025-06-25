@@ -1,27 +1,23 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.User where
 
-import RIO
-import RIO.Directory
-import RIO.File
-import RIO.FilePath
-import Data.Aeson
-import Data.Aeson.Encode.Pretty
-import qualified RIO.ByteString.Lazy as BL
-import qualified RIO.List as L
+import           Data.Aeson
+import           Data.Aeson.Encode.Pretty
+import           RIO
+import qualified RIO.ByteString.Lazy      as BL
+import           RIO.Directory
+import           RIO.File
+import           RIO.FilePath
+import qualified RIO.List                 as L
 
 data User = User
-  { userUid :: Maybe Int
-  , userGid :: Maybe Int
+  { userUid         :: Maybe Int
+  , userGid         :: Maybe Int
   , userDescription :: String
-  , userEmail :: String
-  , userAutos :: [String]
-  , userModules :: [String]
-  , userServices :: [String]
-  , userPrograms :: [String]
-  , userPackages :: [String]
+  , userEmail       :: String
+  , userAutos       :: [String]
   } deriving (Show, Eq)
 
 instance FromJSON User where
@@ -31,22 +27,14 @@ instance FromJSON User where
     <*> v .:? "description" .!= ""
     <*> v .:? "email"       .!= ""
     <*> v .:? "autos"       .!= []
-    <*> v .:? "modules"     .!= []
-    <*> v .:? "services"    .!= []
-    <*> v .:? "programs"    .!= []
-    <*> v .:? "packages"    .!= []
 
 instance ToJSON User where
-  toJSON (User uid gid desc email autos mods svcs progs pkgs) = object
+  toJSON (User uid gid desc email autos) = object
     [ "uid"         .= uid
     , "gid"         .= gid
     , "description" .= desc
     , "email"       .= email
     , "autos"       .= autos
-    , "modules"     .= mods
-    , "services"    .= svcs
-    , "programs"    .= progs
-    , "packages"    .= pkgs
     ]
 
 type Users = Map String User
@@ -74,7 +62,7 @@ readUser :: FilePath -> RIO env User
 readUser path = do
   content <- readFileUtf8 path
   case eitherDecodeStrictText content of
-    Left err -> throwString $ "Failed to parse user file: " <> err
+    Left err   -> throwString $ "Failed to parse user file: " <> err
     Right user -> return user
 
 readFlakeUser :: FilePath -> String -> RIO env User
@@ -90,10 +78,6 @@ emptyUser = User
   , userDescription = ""
   , userEmail = ""
   , userAutos = []
-  , userModules = []
-  , userServices = []
-  , userPrograms = []
-  , userPackages = []
   }
 
 newUser :: String -> String -> User

@@ -1,16 +1,16 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.PM
   ( pmCmds
   ) where
 
-import RIO
-import Nux.Host
-import Nux.Options
-import Nux.User
-import Nux.PM
+import           Nux.Host
+import           Nux.Options
+import           Nux.PM
+import           Nux.User
+import           RIO
 
 pmCmds :: Command (RIO App ())
 pmCmds = addSubCommands
@@ -22,12 +22,8 @@ pmCmds = addSubCommands
   )
 
 data AddOptions = AddOptions
-  { addOptNames   :: [String]
-  , addOptGlobal  :: Bool
-  -- , addOptModule  :: Bool
-  -- , addOptService :: Bool
-  -- , addOptProgram :: Bool
-  -- , addOptPackage :: Bool
+  { addOptNames  :: [String]
+  , addOptGlobal :: Bool
   } deriving (Show, Eq)
 
 addCmd :: Command (RIO App ())
@@ -42,22 +38,6 @@ addCmd = addCommand
                         <> short 'g'
                         <> help "Add package globally (system-wide) instead of user-specific"
                           )
-              -- <*> switch ( long "module"
-              --           <> short 'm'
-              --           <> help "Add package as a module"
-              --           )
-              -- <*> switch ( long "service"
-              --           <> short 's'
-              --           <> help "Add package as a service"
-              --           )
-              -- <*> switch ( long "program"
-              --           <> short 'p'
-              --           <> help "Add package as a program"
-              --           )
-              -- <*> switch ( long "package"
-              --           <> short 'P'
-              --           <> help "Add normal packages"
-              --           )
   )
 
 runAdd :: AddOptions -> RIO App ()
@@ -76,8 +56,8 @@ runAdd AddOptions{..} = do
     logInfo $ fromString $ "Successfully added user packages!"
 
 data DelOptions = DelOptions
-  { delOptNames   :: [String]
-  , delOptGlobal  :: Bool
+  { delOptNames  :: [String]
+  , delOptGlobal :: Bool
   } deriving (Show, Eq)
 
 delCmd :: Command (RIO App ())
@@ -139,7 +119,7 @@ runList ListOptions{..} = do
     exists <- doesHostExist flake hostname
     if exists
     then
-      listHostMSPP flake hostname
+      listHostAutos flake hostname
     else
       throwString $ "Host not found: " <> hostname
   when (not listOptGlobal || listOptAll) $ do
@@ -147,6 +127,6 @@ runList ListOptions{..} = do
     exists <- doesUserExist flake username
     if exists
     then
-      listUserMSPP flake username
+      listUserAutos flake username
     else
       throwString $ "User not found: " <> username

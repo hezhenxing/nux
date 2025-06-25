@@ -1,19 +1,18 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.User
   ( userCmds
   ) where
 
-import RIO
-import RIO.Directory
-import RIO.File
-import RIO.FilePath
-import qualified RIO.List as L
-import Nux.User
-import Nux.Options
-import Nux.Util
+import           Nux.Options
+import           Nux.User
+import           Nux.Util
+import           RIO
+import           RIO.Directory
+import           RIO.File
+import           RIO.FilePath
+import qualified RIO.List      as L
 
 userCmds :: Command (RIO App ())
 userCmds = addSubCommands
@@ -136,11 +135,11 @@ runList = do
       logInfo $ fromString $ name
 
 data EditOptions = EditOptions
-  { editOptNewUid :: Int
-  , editOptNewGid :: Int
+  { editOptNewUid         :: Int
+  , editOptNewGid         :: Int
   , editOptNewDescription :: String
-  , editOptNewEmail :: String
-  , editOptUser :: String
+  , editOptNewEmail       :: String
+  , editOptUser           :: String
   }
 
 editCmd :: Command (RIO App ())

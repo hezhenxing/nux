@@ -1,15 +1,15 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.PM where
 
-import RIO
-import qualified RIO.List as L
-import qualified RIO.Map as Map
-import Data.Aeson
-import Nux.Host
-import Nux.User
-import Nux.Util
+import           Data.Aeson
+import           Nux.Host
+import           Nux.User
+import           Nux.Util
+import           RIO
+import qualified RIO.List   as L
+import qualified RIO.Map    as Map
 
 data OptionItem = OptionItem
   { oiVisible :: Bool
@@ -233,32 +233,14 @@ delUserAutos flake username names = do
   else
     writeFlakeUser flake username user'
 
-listHostMSPP :: HasLogFunc env => FilePath -> String -> RIO env ()
-listHostMSPP flake hostname = do
+listHostAutos :: HasLogFunc env => FilePath -> String -> RIO env ()
+listHostAutos flake hostname = do
   host <- readFlakeHost flake hostname
-  logInfo $ fromString $ "Name         Type"
-  forM_ (hostPackages host) $ \pkg -> do
-    logInfo $ fromString $ pkg <> "         package"
-  forM_ (hostServices host) $ \srv -> do
-    logInfo $ fromString $ srv <> "         service"
-  forM_ (hostPrograms host) $ \prg -> do
-    logInfo $ fromString $ prg <> "         program"
-  forM_ (hostModules host) $ \m -> do
-    logInfo $ fromString $ m <> "         module"
   forM_ (hostAutos host) $ \auto -> do
-    logInfo $ fromString $ auto <> "         auto"
+    logInfo $ fromString $ "  " <> auto
 
-listUserMSPP :: HasLogFunc env => FilePath -> String -> RIO env ()
-listUserMSPP flake username = do
+listUserAutos :: HasLogFunc env => FilePath -> String -> RIO env ()
+listUserAutos flake username = do
   user <- readFlakeUser flake username
-  logInfo $ fromString $ "Name         Type"
-  forM_ (userPackages user) $ \pkg -> do
-    logInfo $ fromString $ pkg <> "         package"
-  forM_ (userServices user) $ \srv -> do
-    logInfo $ fromString $ srv <> "         service"
-  forM_ (userPrograms user) $ \prg -> do
-    logInfo $ fromString $ prg <> "         program"
-  forM_ (userModules user) $ \m -> do
-    logInfo $ fromString $ m <> "         module"
   forM_ (userAutos user) $ \auto -> do
-    logInfo $ fromString $ auto <> "         auto"
+    logInfo $ fromString $ "  " <> auto

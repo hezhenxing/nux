@@ -1,5 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Nux.Options
   ( module Options.Applicative.Simple
   , Options(..)
@@ -13,11 +13,11 @@ module Nux.Options
   , addSubCommandsWithOptions
   ) where
 
-import RIO
-import RIO.Process
-import Options.Applicative.Simple
-import Control.Monad.Trans.Except
-import Control.Monad.Trans.Writer
+import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.Writer
+import           Options.Applicative.Simple
+import           RIO
+import           RIO.Process
 
 data Options = Options
   { optVerbose :: Bool
@@ -29,9 +29,9 @@ data Options = Options
   } deriving (Show, Eq)
 
 data App = App
-  { appLogFunc :: !LogFunc
+  { appLogFunc        :: !LogFunc
   , appProcessContext :: !ProcessContext
-  , appOptions :: !Options
+  , appOptions        :: !Options
   }
 
 instance HasLogFunc App where
