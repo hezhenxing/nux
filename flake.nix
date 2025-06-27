@@ -1,10 +1,11 @@
 {
-  inputs.flakelight.url = "github:nix-community/flakelight";
-  outputs = inputs@{ flakelight, ... }:
-    flakelight ./. {
+  inputs.flakelight-haskell.url = "github:hezhenxing/flakelight-haskell";
+  outputs =
+    inputs@{ flakelight-haskell, ... }:
+    flakelight-haskell ./. {
       inherit inputs;
-      package = pkgs: pkgs.haskellPackages.developPackage { root = ./.; };
-      devShell.packages = pkgs:
+      devShell.packages =
+        pkgs:
         let
           repl = pkgs.writeShellScriptBin "repl" ''
             hpack
@@ -27,11 +28,9 @@
             echo "  runtest -- run cabal test"
             echo "  runvm   -- start NuxOS virtual machine"
           '';
-        in with pkgs; [
-          hpack
-          cabal-install
-          haskell-language-server
-          nixfmt
+        in
+        with pkgs;
+        [
           repl
           runtest
           nux
