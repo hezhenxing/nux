@@ -70,7 +70,7 @@ runAdd AddOptions{..} = do
   let nixFile = userDir </> "default.nix"
   let jsonFile = userDir </> "user.json"
   exists <- doesPathExist nixFile
-  if exists && (not isForce)
+  if exists && not isForce
   then
     throwString $ "User already exists: " <> addOptUsername
   else do
@@ -88,7 +88,7 @@ runAdd AddOptions{..} = do
 
 data DelOptions = DelOptions
   { delOptUsername :: String
-  } deriving (Show, Eq)
+  }
 
 delCmd :: Command (RIO App ())
 delCmd = addCommand
@@ -132,7 +132,7 @@ runList = do
     let nixFile = usersDir </> name </> "default.nix"
     exists <- doesFileExist nixFile
     when exists $
-      logInfo $ fromString $ name
+      logInfo $ fromString name
 
 data EditOptions = EditOptions
   { editOptNewUid         :: Int
@@ -186,8 +186,8 @@ runEdit EditOptions{..} = do
   if exists
   then do
     u <- readUser jsonFile
-    let user = u { userUid = editOptNewUid `zeroOrJust` userUid u
-                 , userGid = editOptNewGid `zeroOrJust` userGid u
+    let user = u { userUid = editOptNewUid `zeroOrJust2` userUid u
+                 , userGid = editOptNewGid `zeroOrJust2` userGid u
                  , userDescription = editOptNewDescription `nullOr` userDescription u
                  , userEmail = editOptNewEmail `nullOr` userEmail u
                  }
@@ -195,5 +195,3 @@ runEdit EditOptions{..} = do
     logInfo $ fromString $ "Successfully updated user " <> editOptUser <> "!"
   else
     throwString $ "User not found: " <> editOptUser
-  where
-    zeroOrJust a b = if a == 0 then b else Just a

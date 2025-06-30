@@ -1,9 +1,9 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell   #-}
 module Nux.Options
   ( module Options.Applicative.Simple
   , Options(..)
   , App(..)
+  , HasUrl(..)
   , HasFlake(..)
   , HasForce(..)
   , HasSystem(..)
@@ -22,6 +22,7 @@ import           RIO.Process
 data Options = Options
   { optVerbose :: Bool
   , optForce   :: Bool
+  , optUrl     :: String
   , optFlake   :: FilePath
   , optSystem  :: String
   , optHost    :: String
@@ -38,6 +39,12 @@ instance HasLogFunc App where
   logFuncL = lens appLogFunc (\x y -> x { appLogFunc = y })
 instance HasProcessContext App where
   processContextL = lens appProcessContext (\x y -> x { appProcessContext = y })
+
+class HasUrl env where
+  urlL :: Lens' env String
+instance HasUrl App where
+  urlL = lens (optUrl . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optUrl = y } })
 
 class HasFlake env where
   flakeL :: Lens' env FilePath

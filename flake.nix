@@ -26,7 +26,7 @@
             echo "Available commands:"
             echo "  repl    -- start cabal repl"
             echo "  runtest -- run cabal test"
-            echo "  runvm   -- start NuxOS virtual machine"
+            echo "  nux     -- build and run nux command"
           '';
         in
         with pkgs;

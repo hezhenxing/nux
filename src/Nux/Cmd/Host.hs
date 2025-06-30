@@ -1,17 +1,17 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.Host
   ( hostCmds
   ) where
 
-import RIO
-import RIO.Directory
-import RIO.File
-import RIO.FilePath
-import qualified RIO.List as L
-import Nux.Host
-import Nux.Options
+import           Nux.Host
+import           Nux.Options
+import           RIO
+import           RIO.Directory
+import           RIO.File
+import           RIO.FilePath
+import qualified RIO.List      as L
 
 hostCmds :: Command (RIO App ())
 hostCmds = addSubCommands
@@ -48,7 +48,7 @@ runAdd AddOptions{..} = do
     logInfo $ fromString $ "Adding host configuration for " <> hostname
     let hostDir = hostsDir </> hostname
     exist <- doesPathExist hostDir
-    if exist && (not isForce)
+    if exist && not isForce
       then do
         logWarn $ fromString $ "Host directory already exist: " <> hostDir
       else do

@@ -1,15 +1,14 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Main where
 
-import RIO
-import RIO.Directory
-import RIO.Process
-import Nux.Cmd
-import Nux.Options
-import Nux.Util (getEnvDefault, getHostname)
-import System.Posix.User (getLoginName)
-import Paths_nux (version)
+import           Nux.Cmd
+import           Nux.Options
+import           Nux.Util          (getEnvDefault, getHostname)
+import           Paths_nux         (version)
+import           RIO
+import           RIO.Process
+import           System.Posix.User (getLoginName)
 
 main :: IO ()
 main = do
@@ -27,6 +26,11 @@ main = do
                  )
       <*> switch ( long "force"
                      <> help "Force overwrite existing files"
+                    )
+      <*> strOption ( long "url"
+                     <> metavar "URL"
+                     <> value "github:hezhenxing/nuxos"
+                     <> help "URL of the NuxOS repository (default: github:hezhenxing/nuxos)"
                     )
       <*> strOption ( long "flake"
                      <> short 'C'

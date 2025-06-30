@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -5,12 +7,15 @@ module Nux.User where
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
+import           Nux.Util
 import           RIO
-import qualified RIO.ByteString.Lazy      as BL
+import qualified RIO.ByteString.Lazy          as BL
 import           RIO.Directory
 import           RIO.File
 import           RIO.FilePath
-import qualified RIO.List                 as L
+import qualified RIO.List                     as L
+import qualified RIO.Text                     as T
+import           System.Posix.User.ByteString
 
 data User = User
   { userUid         :: Maybe Int
@@ -69,7 +74,21 @@ readFlakeUser :: FilePath -> String -> RIO env User
 readFlakeUser flake username = readUser $ userFilePath flake username
 
 writeFlakeUser :: FilePath -> String -> User -> RIO env ()
-writeFlakeUser flake username user = writeUser (userFilePath flake username) user
+writeFlakeUser flake username = writeUser (userFilePath flake username)
+
+writeFlakeUserNix :: FilePath -> String -> RIO env ()
+writeFlakeUserNix flake username = do
+  let nixFile = userNixFilePath flake username
+  writeBinaryFile nixFile $ fromString $ L.unlines
+    [ "with builtins; fromJSON (readFile ./user.json)"
+    ]
+
+addFlakeUser :: FilePath -> String -> User -> RIO env ()
+addFlakeUser flake username user = do
+  let userDir = userDirPath flake username
+  createDirectoryIfMissing True userDir
+  writeFlakeUserNix flake username
+  writeFlakeUser flake username user
 
 emptyUser :: User
 emptyUser = User
@@ -96,3 +115,46 @@ addUserAuto name user =
 delUserAuto :: String -> User -> User
 delUserAuto name user =
   user { userAutos = L.delete name (userAutos user) }
+
+data UserInfo = UserInfo
+  { userInfoUid         :: Int
+  , userInfoGid         :: Int
+  , userInfoDescription :: String
+  , userInfoEmail       :: String
+  } deriving (Show)
+
+defaultUserInfo :: UserInfo
+defaultUserInfo =
+  UserInfo 1000 1000 "" ""
+
+fromUserEntry :: UserEntry -> UserInfo
+fromUserEntry UserEntry{..} =
+  UserInfo uid gid desc email
+  where
+    uid = fromIntegral userID
+    gid = fromIntegral userGroupID
+    desc = decodeUtf8' userGecos & fromRight "" & T.unpack
+    email = ""
+
+getUserEmail :: String -> RIO env String
+getUserEmail name = do
+  user <- liftIO getEffectiveUserName
+  if user == fromString name
+    then tryAny gitConfigGetEmail >>= \case
+      Left _ -> return ""
+      Right s  -> return $ trim s
+    else return ""
+
+getUserEntry :: String -> RIO env UserEntry
+getUserEntry = liftIO . getUserEntryForName . fromString
+
+getUserId :: String -> RIO env Int
+getUserId = fmap (fromIntegral . userID) . getUserEntry
+
+getUserInfo :: String -> RIO env UserInfo
+getUserInfo username = do
+  email <- getUserEmail username
+  ui <- tryAny (getUserEntry username) >>= \case
+    Left _ -> return defaultUserInfo
+    Right u -> return $ fromUserEntry u
+  return ui { userInfoEmail = email }

@@ -86,6 +86,22 @@ readFlakeHost flake hostname = readHost $ hostFilePath flake hostname
 writeFlakeHost :: FilePath -> String -> Host -> RIO env ()
 writeFlakeHost flake hostname = writeHost (hostFilePath flake hostname)
 
+writeFlakeHostNix :: FilePath -> String -> RIO env ()
+writeFlakeHostNix flake hostname = do
+  let hostNix = hostNixFilePath flake hostname
+  writeBinaryFile hostNix
+    $ fromString
+    $ L.unlines
+      [ "with builtins; fromJSON (readFile ./host.json)"
+      ]
+
+addFlakeHost :: FilePath -> String -> Host -> RIO env ()
+addFlakeHost flake hostname host = do
+  let hostDir = hostDirPath flake hostname
+  createDirectoryIfMissing True hostDir
+  writeFlakeHostNix flake hostname
+  writeFlakeHost flake hostname host
+
 addHostAuto :: String -> Host -> Host
 addHostAuto auto host = host
   { hostAutos = auto : hostAutos host
