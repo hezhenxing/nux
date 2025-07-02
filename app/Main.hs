@@ -4,17 +4,21 @@ module Main where
 
 import           Nux.Cmd
 import           Nux.Options
-import           Nux.Util          (getEnvDefault, getHostname)
+import           Nux.Util
 import           Paths_nux         (version)
 import           RIO
+import           RIO.Directory     (getCurrentDirectory)
 import           RIO.Process
-import           System.Posix.User (getLoginName)
+import           System.Posix.User
 
 main :: IO ()
 main = do
   hostname <- getHostname
-  username <- getLoginName
-  nuxosFlake <- getEnvDefault "NUXOS_FLAKE" "/etc/nuxos"
+  username <- getEffectiveUserName
+  nuxosFlake <-
+    if username == "root"
+      then return "/etc/nuxos"
+      else getCurrentDirectory
   (options, cmd) <- simpleOptions
     $(simpleVersion version)
     "Nux"

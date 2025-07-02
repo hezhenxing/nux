@@ -125,6 +125,9 @@ getEfiDevice =
 mkdir :: String -> RIO env ()
 mkdir = createDirectoryIfMissing True
 
+cp :: FilePath -> FilePath -> RIO env ()
+cp src tgt = void $ exec "cp" ["-r", src, tgt]
+
 trimL :: String -> String
 trimL = L.dropWhile isSpace
 

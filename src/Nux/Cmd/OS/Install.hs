@@ -36,6 +36,7 @@ installCmd = addCommand
   (InstallOptions
     <$> strOption ( long "root"
                  <> help "Root device to install Nux system"
+                 <> value ""
                  )
     <*> switch ( long "from-scratch"
               <> short 's'
@@ -96,7 +97,7 @@ installFromFlake InstallOptions{..} = do
   hostname <- view hostL
   isForce <- view forceL
   let rootDev = installOptRootDev
-  logInfo $ fromString $ "Installing Nux system from flake " <> flake <> " to " <> rootDev
+  logInfo $ fromString $ "Installing Nux system from flake " <> flake
   installFlake flake rootDev hostname installOptFormat isForce
 
 installFromScratch :: InstallOptions -> RIO App ()
@@ -144,5 +145,5 @@ installFromScratch InstallOptions{..} = do
     when installOptWait $ do
       logInfo "Press enter to continue..."
       void B.getLine
-    logInfo $ fromString $ "Installing Nux system from scratch to " <> rootDev
+    logInfo $ fromString $ "Installing Nux system from scratch"
     installFlake flake rootDev hostname installOptFormat isForce

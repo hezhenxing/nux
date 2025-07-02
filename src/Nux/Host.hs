@@ -35,6 +35,7 @@ type FileSystems = Map String FileSystem
 
 data Host = Host
   { hostSystem      :: String
+  , hostProfile     :: String
   , hostFileSystems :: FileSystems
   , hostAutos       :: [String]
   } deriving (Show, Eq)
@@ -42,12 +43,14 @@ data Host = Host
 instance FromJSON Host where
   parseJSON = withObject "Host" $ \v -> Host
     <$> v .:  "system"
+    <*> v .:? "profile"     .!= ""
     <*> v .:? "fileSystems" .!= mempty
     <*> v .:? "autos"       .!= []
 
 instance ToJSON Host where
-  toJSON (Host sys fs autos) = object
+  toJSON (Host sys prof fs autos) = object
     [ "system"      .= sys
+    , "profile"     .= prof
     , "fileSystems" .= fs
     , "autos"       .= autos
     ]
@@ -114,6 +117,7 @@ delHostAuto auto host@Host{..} =
 emptyHost :: Host
 emptyHost = Host
   { hostSystem = ""
+  , hostProfile = ""
   , hostFileSystems = mempty
   , hostAutos = []
   }
