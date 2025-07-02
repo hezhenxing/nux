@@ -1,20 +1,19 @@
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module Nux.Cmd.PM
-  ( pmCmds
+module Nux.Cmd.Pkg
+  ( pkgCmds
   ) where
 
 import           Nux.Host
 import           Nux.Options
-import           Nux.PM
+import           Nux.Pkg
 import           Nux.User
 import           RIO
 
-pmCmds :: Command (RIO App ())
-pmCmds = addSubCommands
-  "pm"
+pkgCmds :: Command (RIO App ())
+pkgCmds = addSubCommands
+  "pkg"
   "Package manager commands"
   (do addCmd
       delCmd

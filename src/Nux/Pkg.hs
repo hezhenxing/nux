@@ -1,7 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Nux.PM where
+module Nux.Pkg where
 
 import           Data.Aeson
 import           Nux.Host

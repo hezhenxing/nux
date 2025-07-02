@@ -6,7 +6,7 @@ module Nux.Cmd
 import           Nux.Cmd.FS
 import           Nux.Cmd.Host
 import           Nux.Cmd.OS
-import           Nux.Cmd.PM
+import           Nux.Cmd.Pkg
 import           Nux.Cmd.Say
 import           Nux.Cmd.User
 import           Nux.Options
@@ -17,6 +17,6 @@ nux = do
   sayCmds
   osCmds
   userCmds
-  pmCmds
+  pkgCmds
   hostCmds
   fsCmds
