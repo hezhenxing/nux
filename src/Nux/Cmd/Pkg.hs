@@ -7,6 +7,7 @@ module Nux.Cmd.Pkg
 
 import           Nux.Host
 import           Nux.Options
+import           Nux.OS
 import           Nux.Pkg
 import           Nux.User
 import           RIO
@@ -19,7 +20,83 @@ pkgCmds = addSubCommands
       delCmd
       listCmd
       searchCmd
+      installCmd
+      removeCmd
   )
+
+data InstallOptions = InstallOptions
+  { installOptGlobal :: Bool
+  , installOptNames  :: [String]
+  }
+
+installCmd :: Command (RIO App ())
+installCmd = addCommand
+  "install"
+  "Add packages and switch to new NuxOS configuration"
+  runInstall
+  (InstallOptions
+    <$> switch ( long "global"
+              <> short 'g'
+              <> help "Add package globally (system-wide) instead of user-specific"
+               )
+    <*> some (strArgument ( metavar "PACKAGE"
+                         <> help "Package name to be installed"
+                          ))
+  )
+
+runInstall :: InstallOptions -> RIO App ()
+runInstall InstallOptions{..} = do
+  flake <- view flakeL
+  hostname <- view hostL
+  username <- view userL
+  logInfo $ fromString $ "Using NuxOS in " <> flake
+  if installOptGlobal
+    then do
+      logInfo $ fromString $ "Adding system packages to host " <> hostname
+      addHostAutos flake hostname installOptNames
+    else do
+      logInfo $ fromString $ "Adding user packages to user " <> username
+      addUserAutos flake username installOptNames
+  logInfo "Building and switching NuxOS configuration"
+  nixosSwitchFlake flake hostname
+  logInfo "Successfully installed system packages!"
+
+data RemoveOptions = RemoveOptions
+  { removeOptGlobal :: Bool
+  , removeOptNames  :: [String]
+  }
+
+removeCmd :: Command (RIO App ())
+removeCmd = addCommand
+  "remove"
+  "Remove packages from Nux system"
+  runRemove
+  (RemoveOptions
+    <$> switch ( long "global"
+              <> short 'g'
+              <> help "Remove package globally (system-wide) instead of user-specific"
+               )
+    <*> some (strArgument ( metavar "PACKAGE"
+                         <> help "Package name to be removed"
+                          ))
+  )
+
+runRemove :: RemoveOptions -> RIO App ()
+runRemove RemoveOptions{..} = do
+  flake <- view flakeL
+  hostname <- view hostL
+  username <- view userL
+  logInfo $ fromString $ "Using NuxOS in " <> flake
+  if removeOptGlobal
+    then do
+      logInfo $ fromString $ "Deleting system packages from host " <> hostname
+      delHostAutos flake hostname removeOptNames
+    else do
+      logInfo $ fromString $ "Deleting user packages from user " <> username
+      delUserAutos flake username removeOptNames
+  logInfo "Building and switching NuxOS configuration"
+  nixosSwitchFlake flake hostname
+  logInfo "Successfully installed system packages!"
 
 data AddOptions = AddOptions
   { addOptNames  :: [String]
@@ -156,20 +233,21 @@ runSearch SearchOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
+  logInfo $ fromString $ "Searching in flake " <> flake
   if searchOptGlobal
     then do
+      logInfo $ fromString $ "Searching system packages of host " <> hostname
       exists <- doesHostExist flake hostname
       if exists
         then do
-          logInfo "Searching in global packages"
           searchHost flake hostname searchOptQuery
       else do
         logError $ fromString $ "Host not found: " <> hostname
   else do
+    logInfo $ fromString $ "Searching user packages of user " <> username
     existsUser <- doesUserExist flake username
     if existsUser
       then do
-        logInfo "Searching in user packages"
         searchUser flake username searchOptQuery
       else do
         logError $ fromString $ "User not found: " <> username
