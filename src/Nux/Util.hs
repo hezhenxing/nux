@@ -95,12 +95,6 @@ nixosOptNames osname =
              , "builtins.attrNames"
              ]
 
-nixosRebuild :: String -> [String] -> RIO env ()
-nixosRebuild cmd args = void $ sudo "nixos-rebuild" (cmd : args)
-
-nixosSwitch :: [String] -> RIO env ()
-nixosSwitch = nixosRebuild "switch"
-
 nixosOptionValue :: String -> String -> RIO env String
 nixosOptionValue osname optname =
   nix "eval" ["--json", nixosOptionName osname optname]

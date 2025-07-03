@@ -74,7 +74,7 @@ runInit InitOptions{..} = do
   username <- view userL
   let hostDir = hostDirPath flake hostname
   let userDir = userDirPath flake username
-  logInfo $ fromString $ "Starting NuxOS initialization in " <> flake
+  logInfo $ fromString $ "Initializing NuxOS configuration in " <> flake
   createDirectoryIfMissing True flake
   isEmpty <- isDirectoryEmpty flake
   unless isEmpty $ do
@@ -84,7 +84,6 @@ runInit InitOptions{..} = do
       else do
         logError "The target directory is not empty."
         throwString $ "directory not empty: " <> flake
-  logInfo $ fromString $ "Initializing Nux in directory " <> flake
   initFlake flake url
   UserInfo{..} <- getUserInfo username
   let autos = concatMap (split ',') initOptPackages

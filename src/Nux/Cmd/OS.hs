@@ -6,7 +6,8 @@ module Nux.Cmd.OS
 
 import           Nux.Cmd.OS.Init
 import           Nux.Cmd.OS.Install
-import           Nux.Cmd.OS.Switch
+import           Nux.Cmd.OS.List
+import           Nux.Cmd.OS.Rollback
 import           Nux.Cmd.OS.Update
 import           Nux.Cmd.OS.VM
 import           Nux.Options
@@ -18,7 +19,8 @@ osCmds = addSubCommands
   "OS commands"
   (do initCmd
       installCmd
-      switchCmd
+      rollbackCmd
       updateCmd
       vmCmd
+      listCmd
   )
