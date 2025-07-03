@@ -69,10 +69,12 @@ nixosInstallFlake rootDir flake hostname = do
 
 nixosSwitchFlake :: FilePath -> String -> RIO env ()
 nixosSwitchFlake flake hostname =
-  void $ sudo "nixos-rebuild"
-    [ "switch"
-    , "--flake"
-    , flake <> "#" <> hostname
+  void $ exec "nh"
+    [ "os"
+    , "switch"
+    , flake
+    , "--hostname"
+    , hostname
     ]
 
 mountRoot :: HasLogFunc env => String -> RIO env ()

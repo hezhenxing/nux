@@ -15,4 +15,4 @@ listCmd = addCommand
 
 runList :: RIO App ()
 runList = do
-  exec "nixos-rebuild" ["list-generations"] >>= logInfo . fromString
+  exec "nh" ["os", "info"] >>= logInfo . fromString
