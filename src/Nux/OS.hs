@@ -39,6 +39,7 @@ installFlake flake rootDev hostname formatRoot isForce = do
       return "/"
     else do
       logInfo $ fromString $ "Preparing root filesystem from device " <> rootDev
+      checkMountPoint
       when formatRoot $ do
         logInfo $ fromString $ "Formatting " <> rootDev
         mkfs isForce "btrfs" rootDev
@@ -60,8 +61,9 @@ installFlake flake rootDev hostname formatRoot isForce = do
 
 nixosInstallFlake :: FilePath -> FilePath -> String -> RIO env ()
 nixosInstallFlake rootDir flake hostname = do
-  cp flake $ rootDir </> "etc/nuxos"
-  void $ exec "nixos-install"
+  void $ sudo "mkdir" ["-p", rootDir </> "etc"]
+  void $ sudo "cp" ["-r", flake, rootDir </> "etc/nuxos"]
+  void $ sudo "nixos-install"
     [ "--flake"
     , flake </> "#" <> hostname
     , "--root"
@@ -77,9 +79,8 @@ nixosSwitchFlake flake hostname =
     , hostname
     ]
 
-mountRoot :: HasLogFunc env => String -> RIO env ()
-mountRoot rootDev = do
-  efiDev <- getEfiDevice
+checkMountPoint :: HasLogFunc env => RIO env ()
+checkMountPoint = do
   mountpoint efiMount >>= \case
     False -> return ()
     True -> do
@@ -90,10 +91,18 @@ mountRoot rootDev = do
     True -> do
       logWarn $ fromString $ "Mountpoint in use: " <> mnt <> ", unmounting..."
       umount mnt
+  where
+    mnt = "/mnt"
+    efiMount = mnt <> "/boot/efi"
+
+mountRoot :: HasLogFunc env => String -> RIO env ()
+mountRoot rootDev = do
+  efiDev <- getEfiDevice
   whenM (mounted rootDev) $ do
     throwString $ "root device already mounted: " <> rootDev
   logInfo $ fromString $ "Mounting " <> rootDev <> " to " <> mnt
   mount rootDev mnt
+  void $ sudo "mkdir" ["-p", efiMount]
   logInfo $ fromString $ "Mounting " <> efiDev <> " to " <> efiMount
   mount efiDev efiMount
   where
