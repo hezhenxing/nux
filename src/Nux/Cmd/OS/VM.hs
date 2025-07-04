@@ -89,9 +89,9 @@ runVM opts = do
                            , hostAutos = autos
                            }
       let user = emptyUser { userDescription = vmOptDescription opts `nullOr` userInfoDescription uinfo
-                           , userEmail       = vmOptEmail      opts `nullOr` userInfoEmail uinfo
-                           , userUid         = Just $ vmOptUid opts `zeroOr` userInfoUid uinfo
-                           , userGid         = Just $ vmOptGid opts `zeroOr` userInfoGid uinfo
+                           , userEmail       = vmOptEmail       opts `nullOr` userInfoEmail uinfo
+                           , userUid         = vmOptUid         opts `zeroOr` userInfoUid uinfo
+                           , userGid         = vmOptGid         opts `zeroOr` userInfoGid uinfo
                            , userAutos       = usrAutos
                            }
       withTempFlake $ \flake -> do

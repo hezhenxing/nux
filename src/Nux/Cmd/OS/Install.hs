@@ -116,8 +116,8 @@ installFromScratch InstallOptions{..} = do
                        }
   let user = emptyUser { userDescription = installOptDescription `nullOr` userInfoDescription
                        , userEmail       = installOptEmail       `nullOr` userInfoEmail
-                       , userUid         = Just $ installOptUid  `zeroOr` userInfoUid
-                       , userGid         = Just $ installOptGid  `zeroOr` userInfoGid
+                       , userUid         = installOptUid         `zeroOr` userInfoUid
+                       , userGid         = installOptGid         `zeroOr` userInfoGid
                        , userAutos       = usrAutos
                        }
   withTempFlake $ \flake -> do

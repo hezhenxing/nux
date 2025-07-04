@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -21,39 +22,43 @@ data FileSystem = FileSystem
 instance FromJSON FileSystem where
   parseJSON = withObject "FileSystem" $ \v -> FileSystem
     <$> v .:  "device"
-    <*> v .:? "fsType"  .!= "auto"
-    <*> v .:? "options" .!= [ "defaults" ]
+    <*> v .:? "fsType"  .!= ""
+    <*> v .:? "options" .!= []
 
 instance ToJSON FileSystem where
-  toJSON (FileSystem dev typ opts) = object
-    [ "device"  .= dev
-    , "fsType"  .= typ
-    , "options" .= opts
-    ]
+  toJSON (FileSystem dev typ opts) = object $
+    ["device"  .= dev]
+    ++ ["fsType"  .= typ  | typ /= ""]
+    ++ ["options" .= opts | opts /= []]
 
 type FileSystems = Map String FileSystem
 
 data Host = Host
   { hostSystem      :: String
+  , hostLanguage    :: String
+  , hostTimezone    :: String
   , hostProfile     :: String
   , hostFileSystems :: FileSystems
   , hostAutos       :: [String]
-  } deriving (Show, Eq)
+  } deriving (Generic)
 
 instance FromJSON Host where
   parseJSON = withObject "Host" $ \v -> Host
     <$> v .:  "system"
-    <*> v .:? "profile"     .!= ""
+    <*> v .:  "language"
+    <*> v .:  "timezone"
+    <*> v .:  "profile"
     <*> v .:? "fileSystems" .!= mempty
     <*> v .:? "autos"       .!= []
 
 instance ToJSON Host where
-  toJSON (Host sys prof fs autos) = object
-    [ "system"      .= sys
-    , "profile"     .= prof
-    , "fileSystems" .= fs
-    , "autos"       .= autos
-    ]
+   toJSON (Host sys lang tz prof fs autos) = object $
+    ["system"      .= sys]
+    ++ ["language" .= lang  | lang  /= ""]
+    ++ ["timezone" .= tz    | tz    /= ""]
+    ++ ["timezone" .= prof  | prof  /= ""]
+    ++ ["timezone" .= fs    | fs    /= mempty]
+    ++ ["timezone" .= autos | autos /= []]
 
 type Hosts = Map String Host
 
@@ -117,6 +122,8 @@ delHostAuto auto host@Host{..} =
 emptyHost :: Host
 emptyHost = Host
   { hostSystem = ""
+  , hostLanguage = ""
+  , hostTimezone = ""
   , hostProfile = ""
   , hostFileSystems = mempty
   , hostAutos = []

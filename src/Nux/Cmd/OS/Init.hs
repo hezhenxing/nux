@@ -94,8 +94,8 @@ runInit InitOptions{..} = do
                        }
   let user = emptyUser { userDescription = initOptDescription `nullOr` userInfoDescription
                        , userEmail       = initOptEmail       `nullOr` userInfoEmail
-                       , userUid         = Just $ initOptUid  `zeroOr` userInfoUid
-                       , userGid         = Just $ initOptGid  `zeroOr` userInfoGid
+                       , userUid         = initOptUid         `zeroOr` userInfoUid
+                       , userGid         = initOptGid         `zeroOr` userInfoGid
                        , userAutos       = usrAutos
                        }
   logInfo $ fromString $ "Adding host " <> hostDir

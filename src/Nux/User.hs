@@ -18,8 +18,8 @@ import qualified RIO.Text                     as T
 import           System.Posix.User.ByteString
 
 data User = User
-  { userUid         :: Maybe Int
-  , userGid         :: Maybe Int
+  { userUid         :: Int
+  , userGid         :: Int
   , userDescription :: String
   , userEmail       :: String
   , userAutos       :: [String]
@@ -27,20 +27,20 @@ data User = User
 
 instance FromJSON User where
   parseJSON = withObject "User" $ \v -> User
-    <$> v .:? "uid"
-    <*> v .:? "gid"
+    <$> v .:? "uid"         .!= 0
+    <*> v .:? "gid"         .!= 0
     <*> v .:? "description" .!= ""
     <*> v .:? "email"       .!= ""
     <*> v .:? "autos"       .!= []
 
 instance ToJSON User where
-  toJSON (User uid gid desc email autos) = object
-    [ "uid"         .= uid
-    , "gid"         .= gid
-    , "description" .= desc
-    , "email"       .= email
-    , "autos"       .= autos
-    ]
+  toJSON (User uid gid desc email autos) = object $
+       ["uid"         .= uid   | uid   /= 0]
+    ++ ["gid"         .= gid   | gid   /= 0]
+    ++ ["description" .= desc  | desc  /= ""]
+    ++ ["email"       .= email | email /= ""]
+    ++ ["autos"       .= autos | autos /= []]
+
 
 type Users = Map String User
 
@@ -92,8 +92,8 @@ addFlakeUser flake username user = do
 
 emptyUser :: User
 emptyUser = User
-  { userUid = Nothing
-  , userGid = Nothing
+  { userUid = 0
+  , userGid = 0
   , userDescription = ""
   , userEmail = ""
   , userAutos = []

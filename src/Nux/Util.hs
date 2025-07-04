@@ -179,3 +179,7 @@ isDirectoryEmpty dir = do
     throwString $ "not a directory: " <> dir
   contents <- listDirectory dir
   return $ null contents
+
+removeDirectoryIfEmpty :: FilePath -> RIO env ()
+removeDirectoryIfEmpty dir =
+  whenM (isDirectoryEmpty dir) (removeDirectory dir)
