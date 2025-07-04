@@ -9,20 +9,34 @@ import           Nux.Options
 import           Nux.OS
 import           Nux.Util
 import           RIO
+import           SimplePrompt
+
+data UpdateOptions = UpdateOptions
+  { updateOptYes :: Bool
+  }
 
 updateCmd :: Command (RIO App ())
 updateCmd = addCommand
   "update"
   "Update flake lock file"
-  (const runUpdate)
-  (pure ())
+  runUpdate
+  (UpdateOptions
+    <$> switch ( long "yes"
+              <> short 'y'
+              <> help "Assume yes for all confirmation prompts"
+               )
+  )
 
-runUpdate :: RIO App ()
-runUpdate = do
+runUpdate :: UpdateOptions -> RIO App ()
+runUpdate UpdateOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
   logInfo $ fromString $ "Updating flake in " <> flake
   void $ nixFlake "update" ["--flake", flake]
-  logInfo "Building and switching to updated system"
+  logInfo "Updated the configuration!"
+  unless updateOptYes $ do
+    yes <- yesNo "Do you want to continue upgrading the system?"
+    unless yes $ throwString "user cancelled upgrade"
+  logInfo "Upgrading the system"
   nixosSwitchFlake flake hostname
-  logInfo $ fromString $ "Successfully updated flake in " <> flake <> "!"
+  logInfo "Successfully upgraded system!"

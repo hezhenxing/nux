@@ -17,6 +17,7 @@ import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Writer
 import           Options.Applicative.Simple
 import           RIO
+import           RIO.Orphans                ()
 import           RIO.Process
 
 data Options = Options

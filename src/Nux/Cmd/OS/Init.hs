@@ -12,10 +12,14 @@ import           Nux.User
 import           Nux.Util
 import           RIO
 import           RIO.Directory
-import qualified RIO.List      as L
+import qualified RIO.List                 as L
+import           RIO.Time
+import           System.Environment.Blank (getEnvDefault)
 
 data InitOptions = InitOptions
   { initOptProfile      :: String
+  , initOptLanguage     :: String
+  , initOptTimezone     :: String
   , initOptPackages     :: [String]
   , initOptDescription  :: String
   , initOptEmail        :: String
@@ -32,6 +36,16 @@ initCmd = addCommand
   (InitOptions
     <$> strOption ( long "profile"
                  <> help "Profile to use"
+                 <> value ""
+                  )
+    <*> strOption ( long "language"
+                 <> short 'l'
+                 <> help "Language of the system"
+                 <> value ""
+                  )
+    <*> strOption ( long "timezone"
+                 <> short 't'
+                 <> help "Timezone of the system"
                  <> value ""
                   )
     <*> many (strOption ( long "packages"
@@ -72,6 +86,12 @@ runInit InitOptions{..} = do
   url <- view urlL
   hostname <- view hostL
   username <- view userL
+  lang <- if initOptLanguage == ""
+    then liftIO $ getEnvDefault "LANG" ""
+    else return initOptLanguage
+  timezone <- if initOptTimezone == ""
+    then timeZoneName <$> getCurrentTimeZone
+    else return initOptTimezone
   let hostDir = hostDirPath flake hostname
   let userDir = userDirPath flake username
   logInfo $ fromString $ "Initializing NuxOS configuration in " <> flake
@@ -88,9 +108,11 @@ runInit InitOptions{..} = do
   UserInfo{..} <- getUserInfo username
   let autos = concatMap (split ',') initOptPackages
   let usrAutos = concatMap (split ',') initOptUserPackages
-  let host = emptyHost { hostSystem = system
-                       , hostProfile = initOptProfile
-                       , hostAutos = autos
+  let host = emptyHost { hostSystem   = system
+                       , hostProfile  = initOptProfile
+                       , hostLanguage = lang
+                       , hostTimezone = timezone
+                       , hostAutos    = autos
                        }
   let user = emptyUser { userDescription = initOptDescription `nullOr` userInfoDescription
                        , userEmail       = initOptEmail       `nullOr` userInfoEmail

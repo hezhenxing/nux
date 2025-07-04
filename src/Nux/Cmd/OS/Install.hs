@@ -12,13 +12,13 @@ import           Nux.OS
 import           Nux.User
 import           Nux.Util
 import           RIO
-import qualified RIO.ByteString as B
-import qualified RIO.List       as L
+import qualified RIO.List     as L
+import           SimplePrompt (yesNo)
 
 data InstallOptions = InstallOptions
   { installOptRootDev      :: String
   , installOptFromScratch  :: Bool
-  , installOptWait         :: Bool
+  , installOptYes          :: Bool
   , installOptFormat       :: Bool
   , installOptPackages     :: [String]
   , installOptDescription  :: String
@@ -42,9 +42,9 @@ installCmd = addCommand
               <> short 's'
               <> help "Install Nux system from scratch without using a flake"
                )
-    <*> switch ( long "wait"
-              <> short 'w'
-              <> help "Wait before launch the vm for scratch installation"
+    <*> switch ( long "yes"
+              <> short 'y'
+              <> help "Assume yes for all prompts asking for confirmation"
                )
     <*> switch ( long "format"
               <> help "Format the root device before installation"
@@ -97,7 +97,14 @@ installFromFlake InstallOptions{..} = do
   hostname <- view hostL
   isForce <- view forceL
   let rootDev = installOptRootDev
-  logInfo $ fromString $ "Installing Nux system from flake " <> flake
+  if rootDev == ""
+    then
+      logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to current system"
+    else
+      logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to root device " <> rootDev
+  unless installOptYes $ do
+    yes <- yesNo "Do you want to continue the installation?"
+    unless yes $ throwString "user cancelled installation!"
   installFlake flake rootDev hostname installOptFormat isForce
 
 installFromScratch :: InstallOptions -> RIO App ()
@@ -142,8 +149,10 @@ installFromScratch InstallOptions{..} = do
       , "packages:    " <> show (userAutos user)
       ]
     addFlakeUser flake username user
-    when installOptWait $ do
-      logInfo "Press enter to continue..."
-      void B.getLine
-    logInfo $ fromString $ "Installing Nux system from scratch"
+    logInfo $ fromString $ "Generated NuxOS configuration in " <> flake
+    unless installOptYes $ do
+      yes <- yesNo "Do you want to continue the installation?"
+      unless yes $
+        throwString "user cancelled operation!"
+    logInfo $ fromString $ "Installing Nux system from flake " <> flake
     installFlake flake rootDev hostname installOptFormat isForce

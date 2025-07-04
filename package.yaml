@@ -19,6 +19,8 @@ dependencies:
   - prettyprinter
   - process
   - rio
+  - rio-orphans
+  - simple-prompt
   - transformers
   - unix
 

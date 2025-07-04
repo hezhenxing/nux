@@ -7,6 +7,7 @@ module Nux.Cmd.Host
 
 import           Nux.Host
 import           Nux.Options
+import           Nux.Util
 import           RIO
 import           RIO.Directory
 import           RIO.File
@@ -61,7 +62,8 @@ runAdd AddOptions{..} = do
         writeHost hostFile $ newHost system
 
 data DelOptions = DelOptions
-  { delOptNames :: [String]
+  { delOptNames           :: [String]
+  , delOptRemoveDirectory :: Bool
   } deriving (Show, Eq)
 
 delCmd :: Command (RIO App ())
@@ -69,9 +71,15 @@ delCmd = addCommand
   "del"
   "Delete host configuration"
   runDel
-  (DelOptions <$> some (strArgument ( metavar "NAME"
-                       <> help "Host name to be deleted"
-                       )))
+  (DelOptions
+    <$> some (strArgument ( metavar "NAME"
+                         <> help "Host name to be deleted"
+                          ))
+    <*> switch ( long "remove-directory"
+              <> short 'R'
+              <> help "Remove user directory, normally only user config files are deleted"
+               )
+  )
 
 runDel :: DelOptions -> RIO App ()
 runDel DelOptions{..} = do
@@ -80,8 +88,18 @@ runDel DelOptions{..} = do
     logInfo $ "Deleting host configuration for " <> fromString hostname
     let hostDir = flake </> "nix/hosts" </> hostname
     exists <- doesDirectoryExist hostDir
-    if exists
+    unless exists $ throwString $ "Host not found: " <> hostname
+    if delOptRemoveDirectory
       then do
         removeDirectoryRecursive hostDir
-        logInfo $ "Host configuration for " <> fromString hostname <> " deleted."
-      else logWarn $ "Host configuration for " <> fromString hostname <> " does not exist."
+      else do
+        removeFile $ hostNixFilePath flake hostname
+        removeFile $ hostFilePath flake hostname
+        isempty <- isDirectoryEmpty hostDir
+        if isempty
+          then do
+            removeDirectory hostDir
+          else do
+            logWarn "User directory is not empty after delete config files, user directory not removed"
+
+    logInfo $ fromString $ "Successfully deleted host " <> hostname

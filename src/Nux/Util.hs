@@ -3,11 +3,10 @@
 module Nux.Util where
 
 import           RIO
-import           RIO.Char           (isSpace)
+import           RIO.Char       (isSpace)
 import           RIO.Directory
-import qualified RIO.List           as L
-import           System.Environment (lookupEnv)
-import           System.Process     (readProcessWithExitCode, system)
+import qualified RIO.List       as L
+import           System.Process (readProcessWithExitCode)
 
 split :: Eq a => a -> [a] -> [[a]]
 split a as = case rest of
@@ -159,18 +158,6 @@ gitConfigGet name = gitConfig name []
 
 gitConfigGetEmail :: RIO env String
 gitConfigGetEmail = gitConfigGet "user.email"
-
-getEnvDefault :: MonadIO m => String -> String -> m String
-getEnvDefault var def = do
-  liftIO $ lookupEnv var <&> fromMaybe def
-
-edit :: MonadIO m => String -> String -> m ()
-edit editor file = do
-  defEditor <- getEnvDefault "EDITOR" "nano"
-  let cmd = if editor == ""
-            then defEditor
-            else editor
-  void $ liftIO $ system (cmd <> " " <> file)
 
 isDirectoryEmpty :: FilePath -> RIO env Bool
 isDirectoryEmpty dir = do

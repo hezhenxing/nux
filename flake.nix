@@ -31,6 +31,7 @@
         in
         with pkgs;
         [
+          zlib # required by rio-orphans
           repl
           runtest
           nux
