@@ -15,10 +15,6 @@ main :: IO ()
 main = do
   hostname <- getHostname
   username <- getEffectiveUserName
-  nuxosFlake <-
-    if username == "root"
-      then return "/etc/nuxos"
-      else getCurrentDirectory
   (options, cmd) <- simpleOptions
     $(simpleVersion version)
     "Nux"
@@ -39,8 +35,8 @@ main = do
       <*> strOption ( long "flake"
                      <> short 'C'
                      <> metavar "FLAKE"
-                     <> value nuxosFlake
-                     <> help "Path to the NuxOS flake directory (default: /etc/nuxos)"
+                     <> value "/etc/nuxos"
+                     <> help "Path to the NuxOS configuration directory (default: /etc/nuxos)"
                     )
       <*> strOption ( long "system"
                      <> short 's'

@@ -6,12 +6,14 @@ module Nux.Host where
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
+import           Nux.Util
 import           RIO
 import qualified RIO.ByteString.Lazy      as BL
 import           RIO.Directory
 import           RIO.File
 import           RIO.FilePath
 import qualified RIO.List                 as L
+import qualified RIO.Map                  as Map
 
 data FileSystem = FileSystem
   { fsDevice  :: String
@@ -40,25 +42,25 @@ data Host = Host
   , hostProfile     :: String
   , hostFileSystems :: FileSystems
   , hostAutos       :: [String]
-  } deriving (Generic)
+  } deriving (Show, Generic)
 
 instance FromJSON Host where
   parseJSON = withObject "Host" $ \v -> Host
     <$> v .:  "system"
-    <*> v .:  "language"
-    <*> v .:  "timezone"
-    <*> v .:  "profile"
+    <*> v .:? "language"    .!= ""
+    <*> v .:? "timezone"    .!= ""
+    <*> v .:? "profile"     .!= ""
     <*> v .:? "fileSystems" .!= mempty
     <*> v .:? "autos"       .!= []
 
 instance ToJSON Host where
    toJSON (Host sys lang tz prof fs autos) = object $
-    ["system"      .= sys]
-    ++ ["language" .= lang  | lang  /= ""]
-    ++ ["timezone" .= tz    | tz    /= ""]
-    ++ ["timezone" .= prof  | prof  /= ""]
-    ++ ["timezone" .= fs    | fs    /= mempty]
-    ++ ["timezone" .= autos | autos /= []]
+    ["system"         .= sys]
+    ++ ["language"    .= lang  | lang  /= ""]
+    ++ ["timezone"    .= tz    | tz    /= ""]
+    ++ ["profile"     .= prof  | prof  /= ""]
+    ++ ["fileSystems" .= fs    | fs    /= mempty]
+    ++ ["autos"       .= autos | autos /= []]
 
 type Hosts = Map String Host
 
@@ -136,3 +138,30 @@ nuxosHost :: String -> Host
 nuxosHost system = emptyHost
   { hostSystem = system
   }
+
+addFileSystem :: FilePath -> FileSystem -> Host -> Host
+addFileSystem path fs host =
+  host {hostFileSystems = Map.insert path fs (hostFileSystems host)}
+
+initHost
+  :: String
+  -> String
+  -> String
+  -> String
+  -> FileSystems
+  -> [String]
+  -> RIO env Host
+initHost system profile language timezone filesystems autos = do
+  lang <- if language == ""
+    then getEnvDefault "LANG" ""
+    else return language
+  tz <- if timezone == ""
+    then currentTimeZone
+    else return timezone
+  return emptyHost { hostSystem   = system
+                   , hostProfile  = profile
+                   , hostLanguage = lang
+                   , hostTimezone = tz
+                   , hostFileSystems = filesystems
+                   , hostAutos    = autos
+                   }

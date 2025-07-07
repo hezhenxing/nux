@@ -1,9 +1,10 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-
 module Nux.OS where
 
+import           Nux.Host
+import           Nux.User
 import           Nux.Util
 import           RIO
 import           RIO.Directory
@@ -23,17 +24,86 @@ initFlake flake url = do
     , "}"
     ]
 
+createFlake
+ :: HasLogFunc env
+ => FilePath     -- flake
+ -> String       -- url
+ -> String       -- hostname
+ -> Host
+ -> String       -- username
+ -> User
+ -> Bool         -- force
+ -> RIO env ()
+createFlake flake url hostname host username user isForce = do
+  let hostDir = hostDirPath flake hostname
+  let userDir = userDirPath flake username
+  createDirectoryIfMissing True flake
+  isEmpty <- isDirectoryEmpty flake
+  unless isEmpty $ do
+    if isForce
+      then do
+        logWarn "Directory is not empty, Forcing overwrite existing files..."
+      else do
+        logError "The target directory is not empty."
+        throwString $ "directory not empty: " <> flake
+  logInfo $ fromString $ "Initializing NuxOS configurations in " <> flake
+  initFlake flake url
+  logInfo $ fromString $ "Adding host " <> hostDir
+  logDebug $ fromString $ L.unlines
+    [ "name:        " <>       hostname
+    , "system:      " <>       hostSystem host
+    , "packages:    " <> show (hostAutos host)
+    ]
+  addFlakeHost flake hostname host
+  logInfo $ fromString $ "Adding user " <> userDir
+  logDebug $ fromString $ L.unlines
+    [ "name:        " <>       username
+    , "uid:         " <> show (userUid user)
+    , "gid:         " <> show (userGid user)
+    , "description: " <>       userDescription user
+    , "email:       " <>       userEmail user
+    , "packages:    " <> show (userAutos user)
+    ]
+  addFlakeUser flake username user
+
 installFlake
   :: HasLogFunc env
   => FilePath          -- path to the flake directory
-  -> String            -- root device (e.g., "/dev/sda1")
+  -> FilePath          -- root directory (e.g., "/" or "/mnt")
   -> String            -- hostname
-  -> Bool              -- format root device
+  -> Bool              -- symLink
   -> Bool              -- force
   -> RIO env ()
-installFlake flake rootDev hostname formatRoot isForce = do
-  let hostDir = flake </> "nix/hosts" </> hostname
-  rootDir <- if rootDev == ""
+installFlake flake rootDir hostname symLink isForce = do
+  let lockFile = flake </> "flake.lock"
+  unlessM (doesFileExist lockFile) $ void $ nixFlake "lock" []
+  exists <- doesPathExist $ rootDir </> "etc/nuxos"
+  when (exists && not isForce) $ do
+    throwString "target root filesystem already has NuxOS installed, use --force if you want to overwrite it"
+  let nuxosPath = rootDir </> "etc/nuxos"
+  void $ sudo "mkdir" ["-p", rootDir </> "etc"]
+  void $ sudo "rm" ["-rf", nuxosPath]
+  if symLink
+    then do
+      logInfo $ fromString $ "Creating symbolic link of NuxOS configuation at " <> nuxosPath
+      void $ sudo "ln" ["-s", flake, nuxosPath]
+    else do
+      logInfo $ fromString $ "Copying NuxOS configuration to " <> nuxosPath
+      void $ sudo "cp" ["-r", flake, nuxosPath]
+  logInfo $ fromString $ "Installing NuxOS to " <> rootDir
+  if rootDir == "/"
+    then do
+      nixosSwitchFlake flake hostname
+    else do
+      nixosInstallFlake mnt flake hostname
+      umountRoot
+  logInfo "Congradulations! Installation succeeded!"
+  where
+    mnt = "/mnt"
+
+prepareRoot :: HasLogFunc env => String -> Bool -> Bool -> RIO env FilePath
+prepareRoot rootDev formatRoot isForce = do
+  if rootDev == ""
     then do
       logInfo "Using current root filesystem"
       return "/"
@@ -45,19 +115,8 @@ installFlake flake rootDev hostname formatRoot isForce = do
         mkfs isForce "btrfs" rootDev
       mountRoot rootDev
       return mnt
-  generateHardwareConfig rootDir hostDir isForce
-  let lockFile = flake </> "flake.lock"
-  unlessM (doesFileExist lockFile) $ void $ nixFlake "lock" []
-  logInfo $ fromString $ "Installing NuxOS to " <> rootDir
-  if rootDir == "/"
-    then do
-      nixosSwitchFlake flake hostname
-    else do
-      nixosInstallFlake mnt flake hostname
-      umountRoot
-  logInfo "Congradulations! Installation succeeded!"
   where
-    mnt = "/mnt"
+    mnt = "/mn"
 
 nixosInstallFlake :: FilePath -> FilePath -> String -> RIO env ()
 nixosInstallFlake rootDir flake hostname = do
@@ -128,7 +187,7 @@ generateHardwareConfig rootDir hostDir isForce = do
   exists <- doesFileExist hwFile
   if exists && not isForce
     then do
-      logWarn "Hardware config already exists, add --force to re-generate"
+      logWarn "Hardware config already exists, add --generate to re-generate"
     else do
       logInfo $ fromString "Generating hardware configuration"
       hwConfig <-

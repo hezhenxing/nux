@@ -1,8 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.OS.Init
-  ( initCmd,
+  ( initCmd
   ) where
 
 import           Nux.Host
@@ -12,12 +11,10 @@ import           Nux.User
 import           Nux.Util
 import           RIO
 import           RIO.Directory
-import qualified RIO.List                 as L
-import           RIO.Time
-import           System.Environment.Blank (getEnvDefault)
 
 data InitOptions = InitOptions
-  { initOptProfile      :: String
+  { initOptPath         :: FilePath
+  , initOptProfile      :: String
   , initOptLanguage     :: String
   , initOptTimezone     :: String
   , initOptPackages     :: [String]
@@ -31,10 +28,14 @@ data InitOptions = InitOptions
 initCmd :: Command (RIO App ())
 initCmd = addCommand
   "init"
-  "Initialize NuxOS in the directory"
+  "Initialize a new NuxOS configuration"
   runInit
   (InitOptions
-    <$> strOption ( long "profile"
+    <$> strArgument ( metavar "PATH"
+                   <> help "Directory path to create NuxOS configuration"
+                    )
+    <*> strOption ( long "profile"
+                 <> short 'r'
                  <> help "Profile to use"
                  <> value ""
                   )
@@ -80,61 +81,27 @@ initCmd = addCommand
 
 runInit :: InitOptions -> RIO App ()
 runInit InitOptions{..} = do
-  flake <- view flakeL
+  url <- view urlL
   isForce <- view forceL
   system <- view systemL
-  url <- view urlL
   hostname <- view hostL
   username <- view userL
-  lang <- if initOptLanguage == ""
-    then liftIO $ getEnvDefault "LANG" ""
-    else return initOptLanguage
-  timezone <- if initOptTimezone == ""
-    then timeZoneName <$> getCurrentTimeZone
-    else return initOptTimezone
-  let hostDir = hostDirPath flake hostname
-  let userDir = userDirPath flake username
-  logInfo $ fromString $ "Initializing NuxOS configuration in " <> flake
-  createDirectoryIfMissing True flake
-  isEmpty <- isDirectoryEmpty flake
-  unless isEmpty $ do
-    if isForce
-      then do
-        logWarn "Directory is not empty, Forcing overwrite existing files..."
-      else do
-        logError "The target directory is not empty."
-        throwString $ "directory not empty: " <> flake
-  initFlake flake url
-  UserInfo{..} <- getUserInfo username
+  flake <- makeAbsolute initOptPath
   let autos = concatMap (split ',') initOptPackages
-  let usrAutos = concatMap (split ',') initOptUserPackages
-  let host = emptyHost { hostSystem   = system
-                       , hostProfile  = initOptProfile
-                       , hostLanguage = lang
-                       , hostTimezone = timezone
-                       , hostAutos    = autos
-                       }
-  let user = emptyUser { userDescription = initOptDescription `nullOr` userInfoDescription
-                       , userEmail       = initOptEmail       `nullOr` userInfoEmail
-                       , userUid         = initOptUid         `zeroOr` userInfoUid
-                       , userGid         = initOptGid         `zeroOr` userInfoGid
-                       , userAutos       = usrAutos
-                       }
-  logInfo $ fromString $ "Adding host " <> hostDir
-  logDebug $ fromString $ L.unlines
-    [ "name:        " <>       hostname
-    , "system:      " <>       hostSystem host
-    , "packages:    " <> show (hostAutos host)
-    ]
-  addFlakeHost flake hostname host
-  logInfo $ fromString $ "Adding user " <> userDir
-  logDebug $ fromString $ L.unlines
-    [ "name:        " <>       username
-    , "uid:         " <> show (userUid user)
-    , "gid:         " <> show (userGid user)
-    , "description: " <>       userDescription user
-    , "email:       " <>       userEmail user
-    , "packages:    " <> show (userAutos user)
-    ]
-  addFlakeUser flake username user
-  logInfo "NuxOS initialized successfully."
+  let userAutos = concatMap (split ',') initOptUserPackages
+  let filesystems = mempty
+  host <- initHost
+    system
+    initOptProfile
+    initOptLanguage
+    initOptTimezone
+    filesystems
+    autos
+  user <- initUser
+    username
+    initOptDescription
+    initOptEmail
+    initOptUid
+    initOptGid
+    userAutos
+  createFlake flake url hostname host username user isForce

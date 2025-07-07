@@ -1,12 +1,14 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Nux.Util where
 
 import           RIO
-import           RIO.Char       (isSpace)
+import           RIO.Char                 (isSpace)
 import           RIO.Directory
-import qualified RIO.List       as L
-import           System.Process (readProcessWithExitCode)
+import qualified RIO.List                 as L
+import qualified System.Environment.Blank as SE
+import           System.Process           (readProcessWithExitCode)
 
 split :: Eq a => a -> [a] -> [[a]]
 split a as = case rest of
@@ -35,7 +37,6 @@ splitOptions s
   & split ','
   & map trim
   & filter (/= "")
-  & (`nullOr` ["defaults"])
 
 exec :: MonadIO m => String -> [String] -> m String
 exec cmd args = do
@@ -170,3 +171,24 @@ isDirectoryEmpty dir = do
 removeDirectoryIfEmpty :: FilePath -> RIO env ()
 removeDirectoryIfEmpty dir =
   whenM (isDirectoryEmpty dir) (removeDirectory dir)
+
+getEnvDefault :: MonadIO m => String -> String -> m String
+getEnvDefault = (liftIO .) .SE.getEnvDefault
+
+currentTimeZone :: MonadUnliftIO m => m String
+currentTimeZone = do
+  tz <- getEnvDefault "TZ" ""
+  if tz /= ""
+    then
+      return tz
+    else do
+      getSymbolicLinkTarget "/etc/localtime" & tryAny >>= \case
+        Left _ -> return ""
+        Right fp -> return $ L.dropPrefix "/etc/zoneinfo/" fp
+
+followLink :: FilePath -> RIO env FilePath
+followLink path = do
+  isLink <- pathIsSymbolicLink path
+  if isLink
+    then getSymbolicLinkTarget path
+    else return path

@@ -158,3 +158,20 @@ getUserInfo username = do
     Left _ -> return defaultUserInfo
     Right u -> return $ fromUserEntry u
   return ui { userInfoEmail = email }
+
+initUser
+  :: String
+  -> String
+  -> String
+  -> Int
+  -> Int
+  -> [String]
+  -> RIO env User
+initUser username desc email uid gid autos = do
+  UserInfo{..} <- getUserInfo username
+  return emptyUser { userDescription = desc  `nullOr` userInfoDescription
+                   , userEmail       = email `nullOr` userInfoEmail
+                   , userUid         = uid   `zeroOr` userInfoUid
+                   , userGid         = gid   `zeroOr` userInfoGid
+                   , userAutos       = autos
+                   }

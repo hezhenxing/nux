@@ -43,7 +43,7 @@ runRollback RollbackOptions{..} = do
       logInfo $ fromString $ "Will rollback to generation " <> show rollbackOptTo
       return ["--to", show rollbackOptTo]
   unless rollbackOptYes $ do
-    yes <- yesNo "Do you want to continue the rollback?"
+    yes <- yesNo "Do you want to continue the rollback"
     unless yes $ throwString "user cancelled rollback"
   void $ exec "nh" $ ["os",  "rollback"] ++ toArgs
   logInfo "Rollback to NuxOS generation successfully."

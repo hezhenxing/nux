@@ -29,13 +29,13 @@ updateCmd = addCommand
 
 runUpdate :: UpdateOptions -> RIO App ()
 runUpdate UpdateOptions{..} = do
-  flake <- view flakeL
+  flake <- view flakeL >>= followLink
   hostname <- view hostL
-  logInfo $ fromString $ "Updating flake in " <> flake
+  logInfo $ fromString $ "Updating NuxOS configuration in " <> flake
   void $ nixFlake "update" ["--flake", flake]
   logInfo "Updated the configuration!"
   unless updateOptYes $ do
-    yes <- yesNo "Do you want to continue upgrading the system?"
+    yes <- yesNo "Do you want to upgrade the system"
     unless yes $ throwString "user cancelled upgrade"
   logInfo "Upgrading the system"
   nixosSwitchFlake flake hostname
