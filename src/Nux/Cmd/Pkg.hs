@@ -7,8 +7,8 @@ module Nux.Cmd.Pkg
 
 import           Nux.Host
 import           Nux.Options
-import           Nux.OS
 import           Nux.Pkg
+import           Nux.Process
 import           Nux.User
 import           RIO
 
@@ -58,7 +58,7 @@ runInstall InstallOptions{..} = do
       logInfo $ fromString $ "Adding user packages to user " <> username
       addUserAutos flake username installOptNames
   logInfo "Building and switching NuxOS configuration"
-  nixosSwitchFlake flake hostname
+  flakeSwitch flake hostname
   logInfo "Successfully installed system packages!"
 
 data RemoveOptions = RemoveOptions
@@ -95,7 +95,7 @@ runRemove RemoveOptions{..} = do
       logInfo $ fromString $ "Deleting user packages from user " <> username
       delUserAutos flake username removeOptNames
   logInfo "Building and switching NuxOS configuration"
-  nixosSwitchFlake flake hostname
+  flakeSwitch flake hostname
   logInfo "Successfully installed system packages!"
 
 data AddOptions = AddOptions

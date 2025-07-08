@@ -6,7 +6,7 @@ module Nux.Cmd.OS.Update
   ) where
 
 import           Nux.Options
-import           Nux.OS
+import           Nux.Process
 import           Nux.Util
 import           RIO
 import           SimplePrompt
@@ -32,11 +32,11 @@ runUpdate UpdateOptions{..} = do
   flake <- view flakeL >>= followLink
   hostname <- view hostL
   logInfo $ fromString $ "Updating NuxOS configuration in " <> flake
-  void $ nixFlake "update" ["--flake", flake]
+  flakeUpdate flake
   logInfo "Updated the configuration!"
   unless updateOptYes $ do
     yes <- yesNo "Do you want to upgrade the system"
-    unless yes $ throwString "user cancelled upgrade"
+    unless yes $ die "user cancelled upgrade"
   logInfo "Upgrading the system"
-  nixosSwitchFlake flake hostname
+  flakeSwitch flake hostname
   logInfo "Successfully upgraded system!"

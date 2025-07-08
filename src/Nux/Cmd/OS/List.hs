@@ -3,7 +3,7 @@ module Nux.Cmd.OS.List
   ) where
 
 import           Nux.Options
-import           Nux.Util
+import           Nux.Process
 import           RIO
 
 listCmd :: Command (RIO App ())
@@ -14,5 +14,9 @@ listCmd = addCommand
   (pure ())
 
 runList :: RIO App ()
-runList = do
-  exec "nh" ["os", "info"] >>= logInfo . fromString
+runList
+  = cmd "nh"
+  & arg "os"
+  & arg "info"
+  & readStdoutString
+  >>= logInfo . fromString

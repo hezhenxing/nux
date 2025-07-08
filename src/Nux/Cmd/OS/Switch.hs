@@ -5,7 +5,7 @@ module Nux.Cmd.OS.Switch
   ) where
 
 import           Nux.Options
-import           Nux.OS
+import           Nux.Process
 import           Nux.Util
 import           RIO
 
@@ -22,5 +22,5 @@ runSwitch = do
   hostname <- view hostL
   logInfo $ fromString $ "Using NuxOS configuration in " <> flake
   logInfo $ fromString $ "Building and switching NuxOS system of host " <> hostname
-  nixosSwitchFlake flake hostname
+  flakeSwitch flake hostname
   logInfo "Successfully upgraded system!"

@@ -4,16 +4,19 @@
 module Nux.OS where
 
 import           Nux.Host
+import           Nux.Process
 import           Nux.User
 import           Nux.Util
 import           RIO
+import qualified RIO.ByteString.Lazy as BL
 import           RIO.Directory
 import           RIO.File
 import           RIO.FilePath
-import qualified RIO.List      as L
+import qualified RIO.List            as L
+import           RIO.Process
 
-initFlake :: FilePath -> String -> RIO env ()
-initFlake flake url = do
+writeFlakeFile :: FilePath -> String -> RIO env ()
+writeFlakeFile flake url = do
   let flakeFile = flake </> "flake.nix"
   writeBinaryFile flakeFile $ fromString $ L.unlines
     [ "{"
@@ -24,7 +27,7 @@ initFlake flake url = do
     , "}"
     ]
 
-createFlake
+initFlake
  :: HasLogFunc env
  => FilePath     -- flake
  -> String       -- url
@@ -34,7 +37,8 @@ createFlake
  -> User
  -> Bool         -- force
  -> RIO env ()
-createFlake flake url hostname host username user isForce = do
+initFlake flake url hostname host username user isForce = do
+  logInfo $ fromString $ "Initializing NuxOS configuration directory " <> flake
   let hostDir = hostDirPath flake hostname
   let userDir = userDirPath flake username
   createDirectoryIfMissing True flake
@@ -46,8 +50,7 @@ createFlake flake url hostname host username user isForce = do
       else do
         logError "The target directory is not empty."
         throwString $ "directory not empty: " <> flake
-  logInfo $ fromString $ "Initializing NuxOS configurations in " <> flake
-  initFlake flake url
+  writeFlakeFile flake url
   logInfo $ fromString $ "Adding host " <> hostDir
   logDebug $ fromString $ L.unlines
     [ "name:        " <>       hostname
@@ -67,7 +70,7 @@ createFlake flake url hostname host username user isForce = do
   addFlakeUser flake username user
 
 installFlake
-  :: HasLogFunc env
+  :: (HasProcessContext env, HasLogFunc env)
   => FilePath          -- path to the flake directory
   -> FilePath          -- root directory (e.g., "/" or "/mnt")
   -> String            -- hostname
@@ -76,32 +79,49 @@ installFlake
   -> RIO env ()
 installFlake flake rootDir hostname symLink isForce = do
   let lockFile = flake </> "flake.lock"
-  unlessM (doesFileExist lockFile) $ void $ nixFlake "lock" []
+  unlessM (doesFileExist lockFile) $
+    run $ cmd "nix" & arg "flake" & arg "lock"
   exists <- doesPathExist $ rootDir </> "etc/nuxos"
   when (exists && not isForce) $ do
     throwString "target root filesystem already has NuxOS installed, use --force if you want to overwrite it"
   let nuxosPath = rootDir </> "etc/nuxos"
-  void $ sudo "mkdir" ["-p", rootDir </> "etc"]
-  void $ sudo "rm" ["-rf", nuxosPath]
+  run $ cmd "mkdir"
+      & arg "-p"
+      & arg (rootDir </> "etc")
+      & sudo
+  run $ cmd "rm"
+      & arg "-rf"
+      & arg nuxosPath
+      & sudo
   if symLink
     then do
       logInfo $ fromString $ "Creating symbolic link of NuxOS configuation at " <> nuxosPath
-      void $ sudo "ln" ["-s", flake, nuxosPath]
+      run $ cmd "ln"
+          & arg "-s"
+          & arg flake
+          & arg nuxosPath
+          & sudo
     else do
       logInfo $ fromString $ "Copying NuxOS configuration to " <> nuxosPath
-      void $ sudo "cp" ["-r", flake, nuxosPath]
+      run $ cmd "cp"
+          & arg "-r"
+          & arg flake
+          & arg nuxosPath
+          & sudo
   logInfo $ fromString $ "Installing NuxOS to " <> rootDir
   if rootDir == "/"
     then do
-      nixosSwitchFlake flake hostname
+      flakeSwitch flake hostname
     else do
-      nixosInstallFlake mnt flake hostname
+      flakeInstall mnt flake hostname
       umountRoot
   logInfo "Congradulations! Installation succeeded!"
   where
     mnt = "/mnt"
 
-prepareRoot :: HasLogFunc env => String -> Bool -> Bool -> RIO env FilePath
+prepareRoot
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> Bool -> Bool -> RIO env FilePath
 prepareRoot rootDev formatRoot isForce = do
   if rootDev == ""
     then do
@@ -118,27 +138,8 @@ prepareRoot rootDev formatRoot isForce = do
   where
     mnt = "/mn"
 
-nixosInstallFlake :: FilePath -> FilePath -> String -> RIO env ()
-nixosInstallFlake rootDir flake hostname = do
-  void $ sudo "mkdir" ["-p", rootDir </> "etc"]
-  void $ sudo "cp" ["-r", flake, rootDir </> "etc/nuxos"]
-  void $ sudo "nixos-install"
-    [ "--flake"
-    , flake </> "#" <> hostname
-    , "--root"
-    , rootDir]
-
-nixosSwitchFlake :: FilePath -> String -> RIO env ()
-nixosSwitchFlake flake hostname =
-  void $ exec "nh"
-    [ "os"
-    , "switch"
-    , flake
-    , "--hostname"
-    , hostname
-    ]
-
-checkMountPoint :: HasLogFunc env => RIO env ()
+checkMountPoint
+  :: (HasProcessContext env, HasLogFunc env) => RIO env ()
 checkMountPoint = do
   mountpoint efiMount >>= \case
     False -> return ()
@@ -154,21 +155,24 @@ checkMountPoint = do
     mnt = "/mnt"
     efiMount = mnt <> "/boot/efi"
 
-mountRoot :: HasLogFunc env => String -> RIO env ()
+mountRoot :: (HasProcessContext env, HasLogFunc env) => String -> RIO env ()
 mountRoot rootDev = do
   efiDev <- getEfiDevice
   whenM (mounted rootDev) $ do
     throwString $ "root device already mounted: " <> rootDev
   logInfo $ fromString $ "Mounting " <> rootDev <> " to " <> mnt
   mount rootDev mnt
-  void $ sudo "mkdir" ["-p", efiMount]
+  run $ cmd "mkdir"
+      & arg "-p"
+      & arg efiMount
+      & sudo
   logInfo $ fromString $ "Mounting " <> efiDev <> " to " <> efiMount
   mount efiDev efiMount
   where
     mnt = "/mnt"
     efiMount = mnt <> "/boot/efi"
 
-umountRoot :: RIO env ()
+umountRoot :: (HasProcessContext env, HasLogFunc env) => RIO env ()
 umountRoot = do
   umount efiMount
   umount mnt
@@ -177,7 +181,7 @@ umountRoot = do
     efiMount = mnt <> "/boot/efi"
 
 generateHardwareConfig
-  :: HasLogFunc env
+  :: (HasProcessContext env, HasLogFunc env)
   => FilePath
   -> FilePath
   -> Bool
@@ -191,10 +195,12 @@ generateHardwareConfig rootDir hostDir isForce = do
     else do
       logInfo $ fromString "Generating hardware configuration"
       hwConfig <-
-        sudo "nixos-generate-config" $
-          "--show-hardware-config":
-          (if rootDir == "/" then [] else ["--root", rootDir])
-      writeBinaryFile hwFile $ fromString hwConfig
+        readStdout
+          $ cmd "nixos-generate-config"
+          & arg "--show-hardware-config"
+          & args (if rootDir == "/" then [] else ["--root", rootDir])
+          & sudo
+      writeBinaryFile hwFile $ BL.toStrict hwConfig
 
 withTempFlake :: (FilePath -> RIO env ()) -> RIO env ()
 withTempFlake = withSystemTempDirectory "nuxos"

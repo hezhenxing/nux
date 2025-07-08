@@ -104,4 +104,4 @@ runInit InitOptions{..} = do
     initOptUid
     initOptGid
     userAutos
-  createFlake flake url hostname host username user isForce
+  initFlake flake url hostname host username user isForce

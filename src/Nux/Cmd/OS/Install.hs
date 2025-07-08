@@ -8,6 +8,7 @@ where
 
 import           Nux.Options
 import           Nux.OS
+import           Nux.Process
 import           RIO
 import           RIO.Directory (makeAbsolute)
 import           RIO.FilePath
@@ -67,7 +68,7 @@ runInstall InstallOptions{..} = do
       logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to root device " <> rootDev
   unless installOptYes $ do
     yes <- yesNo "Do you want to continue the installation"
-    unless yes $ throwString "user cancelled installation!"
+    unless yes $ die "user cancelled installation!"
   rootDir <- prepareRoot rootDev installOptFormat isForce
   generateHardwareConfig rootDir hostDir installlOptGenerate
   installFlake flake rootDir hostname installOptLink isForce

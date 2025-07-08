@@ -7,6 +7,7 @@ module Nux.User where
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
+import           Nux.Process
 import           Nux.Util
 import           RIO
 import qualified RIO.ByteString.Lazy          as BL
@@ -14,6 +15,7 @@ import           RIO.Directory
 import           RIO.File
 import           RIO.FilePath
 import qualified RIO.List                     as L
+import           RIO.Process                  (HasProcessContext)
 import qualified RIO.Text                     as T
 import           System.Posix.User.ByteString
 
@@ -136,7 +138,9 @@ fromUserEntry UserEntry{..} =
     desc = decodeUtf8' userGecos & fromRight "" & T.unpack
     email = ""
 
-getUserEmail :: String -> RIO env String
+getUserEmail
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> RIO env String
 getUserEmail name = do
   user <- liftIO getEffectiveUserName
   if user == fromString name
@@ -151,7 +155,9 @@ getUserEntry = liftIO . getUserEntryForName . fromString
 getUserId :: String -> RIO env Int
 getUserId = fmap (fromIntegral . userID) . getUserEntry
 
-getUserInfo :: String -> RIO env UserInfo
+getUserInfo
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> RIO env UserInfo
 getUserInfo username = do
   email <- getUserEmail username
   ui <- tryAny (getUserEntry username) >>= \case
@@ -160,7 +166,8 @@ getUserInfo username = do
   return ui { userInfoEmail = email }
 
 initUser
-  :: String
+  :: (HasProcessContext env, HasLogFunc env)
+  => String
   -> String
   -> String
   -> Int

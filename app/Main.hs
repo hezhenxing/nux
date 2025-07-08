@@ -2,18 +2,17 @@
 {-# LANGUAGE TemplateHaskell   #-}
 module Main where
 
+import           Network.HostName
 import           Nux.Cmd
 import           Nux.Options
-import           Nux.Util
 import           Paths_nux         (version)
 import           RIO
-import           RIO.Directory     (getCurrentDirectory)
 import           RIO.Process
 import           System.Posix.User
 
 main :: IO ()
 main = do
-  hostname <- getHostname
+  hostname <- getHostName
   username <- getEffectiveUserName
   (options, cmd) <- simpleOptions
     $(simpleVersion version)

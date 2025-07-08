@@ -6,7 +6,7 @@ module Nux.Cmd.OS.VM
   ) where
 
 import           Nux.Options
-import           Nux.Util
+import           Nux.Process
 import           RIO
 
 vmCmd :: Command (RIO App ())
@@ -20,9 +20,14 @@ runVM :: RIO App ()
 runVM = do
   flake <- view flakeL
   hostname <- view hostL
-  logInfo $ fromString $ "Building and running NuxOS VM of " <> hostname <> " from flake " <> flake
-  tryAny (nixrun [flake <> "#nixosConfigurations." <> hostname <> ".config.system.build.vm"]) >>= \case
-    Left e -> do
-      logError $ fromString $ "Failed to run vm: " <> displayException e
-    Right _ -> do
-      logInfo "Run VM successfully."
+  logInfo $ fromString $ "Using NuxOS configuration " <> flake
+  logInfo $ fromString $ "Building and running vm of host " <> hostname
+  rc <- runExitCode
+    $ cmd "nix"
+    & arg "run"
+    & arg (flake <> "#nixosConfigurations." <> hostname <> ".config.system.build.vm")
+  case rc of
+    ExitFailure ec -> do
+      logError $ fromString $ "Running vm failed with exit code: " <> show ec
+    ExitSuccess -> do
+      logInfo "Run vm successfully."

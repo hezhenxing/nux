@@ -15,6 +15,7 @@ dependencies:
   - aeson
   - aeson-pretty
   - data-default
+  - hostname
   - optparse-simple
   - prettyprinter
   - process

@@ -7,7 +7,7 @@ module Nux.Cmd.OS.Rollback
   ) where
 
 import           Nux.Options
-import           Nux.Util
+import           Nux.Process
 import           RIO
 import           SimplePrompt
 
@@ -44,6 +44,6 @@ runRollback RollbackOptions{..} = do
       return ["--to", show rollbackOptTo]
   unless rollbackOptYes $ do
     yes <- yesNo "Do you want to continue the rollback"
-    unless yes $ throwString "user cancelled rollback"
-  void $ exec "nh" $ ["os",  "rollback"] ++ toArgs
+    unless yes $ die "user cancelled rollback"
+  run $ cmd "nh" & arg "os" & arg "rollback" & args toArgs
   logInfo "Rollback to NuxOS generation successfully."

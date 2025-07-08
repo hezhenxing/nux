@@ -5,11 +5,12 @@ module Nux.Pkg where
 
 import           Data.Aeson
 import           Nux.Host
+import           Nux.Process
 import           Nux.User
-import           Nux.Util
 import           RIO
-import qualified RIO.List   as L
-import qualified RIO.Map    as Map
+import qualified RIO.List    as L
+import qualified RIO.Map     as Map
+import           RIO.Process
 
 data OptionItem = OptionItem
   { oiVisible :: Bool
@@ -27,133 +28,149 @@ instance ToJSON OptionItem where
     , "enable"  .= enable
     ]
 
-nixosModules :: FilePath -> RIO env [String]
-nixosModules flake = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nuxos.nixosModules"
-               , "--apply"
-               , "builtins.attrNames"
-               ]
-  case eitherDecode (fromString content) of
+applyAttrNames :: Proc -> Proc
+applyAttrNames p = p & arg "--apply" & arg "builtins.attrNames"
+
+applyMapNames :: Proc -> Proc
+applyMapNames p = p & arg "--apply" & arg "map (p: p.name)"
+
+nixEvalJson :: Proc
+nixEvalJson = cmd "nix" & arg "eval" & arg "--json"
+
+nixEvalAttrNames
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> FilePath -> RIO env [String]
+nixEvalAttrNames attrname flakeDir = do
+  content <- nixEvalJson
+    & applyAttrNames
+    & arg (flakeDir <> "#" <> attrname)
+    & readStdout
+  case eitherDecode content of
     Left err -> throwString err
     Right r  -> return r
 
-homeModules :: FilePath -> RIO env [String]
-homeModules flake = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nuxos.homeModules"
-               , "--apply"
-               , "builtins.attrNames"
-               ]
-  case eitherDecode (fromString content) of
+nixEvalMapNames
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> FilePath -> RIO env [String]
+nixEvalMapNames attrname flakeDir = do
+  content <- nixEvalJson
+    & applyMapNames
+    & arg (flakeDir <> "#" <> attrname)
+    & readStdout
+  case eitherDecode content of
     Left err -> throwString err
     Right r  -> return r
 
-nixosOptItems :: FilePath -> String -> String -> RIO env (Map String OptionItem)
-nixosOptItems flake host opt = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nixosConfigurations." <> host <> ".options." <> opt
-               , "--apply"
-               , "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or (hasAttr \"enable\" v); enable = if visible then v.enable.value or false else false; })"
-               ]
-  case eitherDecode (fromString content) of
+nixosModules :: (HasProcessContext env, HasLogFunc env) => FilePath -> RIO env [String]
+nixosModules = nixEvalAttrNames "nuxos.nixosModules"
+
+homeModules :: (HasProcessContext env, HasLogFunc env) => FilePath -> RIO env [String]
+homeModules = nixEvalAttrNames "nuxos.homeModules"
+
+applyMapAttrsOption :: Proc -> Proc
+applyMapAttrsOption p =
+  p & arg "--apply"
+    & arg "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or (hasAttr \"enable\" v); enable = if visible then v.enable.value or false else false; })"
+
+nixosOptStr :: FilePath -> String -> String -> String
+nixosOptStr flake host name =
+  flake <> ".nixosConfigurations." <> host <> ".options." <> name
+
+nixosOptItems
+  :: (HasProcessContext env, HasLogFunc env)
+  => String -> RIO env (Map String OptionItem)
+nixosOptItems name = do
+  content <- readStdout
+    $ nixEvalJson
+    & applyMapAttrsOption
+    & arg name
+  case eitherDecode content of
     Left err -> throwString err
     Right r  -> return (Map.filter oiVisible r)
 
-nixosServices :: FilePath -> String -> RIO env (Map String OptionItem)
-nixosServices flake host = nixosOptItems flake host "services"
+nixosServices
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env (Map String OptionItem)
+nixosServices flake host = nixosOptItems $ nixosOptStr flake host "services"
 
-nixosPrograms :: FilePath -> String -> RIO env (Map String OptionItem)
-nixosPrograms flake host = nixosOptItems flake host "programs"
+nixosPrograms
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env (Map String OptionItem)
+nixosPrograms flake host = nixosOptItems $ nixosOptStr flake host "programs"
 
-nixosPackages :: FilePath -> String -> RIO env [String]
-nixosPackages flake host = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nixosConfigurations." <> host <> ".pkgs"
-               , "--apply"
-               , "builtins.attrNames"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+nixosPackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixosPackages flake host =
+  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs") flake
 
-nixosSystemPackages :: FilePath -> String -> RIO env [String]
-nixosSystemPackages flake host = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nixosConfigurations." <> host <> ".config.environment.systemPackages"
-               , "--apply"
-               , "with builtins; map (p: p.name)"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+nixosSystemPackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixosSystemPackages flake host =
+  nixEvalMapNames ("#nixosConfigurations." <> host <> ".config.environment.systemPackages") flake
 
-nixosHomePackages :: FilePath -> String -> String -> RIO env [String]
+nixosHomePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env [String]
 nixosHomePackages flake host user = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> ".home.packages"
-               , "--apply"
-               , "with builtins; map (p: p.name)"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+  nixEvalMapNames ("#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> ".home.packages") flake
 
-nixosHomeItems :: FilePath -> String -> String -> String -> RIO env (Map String OptionItem)
-nixosHomeItems flake host user opt = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> "." <> opt
-               , "--apply"
-               , "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or true; enable = if visible then v.enable.value or false else false; })"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+hmUserOptStr :: FilePath -> String -> String -> String -> String
+hmUserOptStr flake host user name
+  = flake <> "#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> "." <> name
 
-nixosHomeServices :: FilePath -> String -> String -> RIO env (Map String OptionItem)
-nixosHomeServices flake host user = nixosHomeItems flake host user "services"
+nixosHomeItems
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> String -> RIO env (Map String OptionItem)
+nixosHomeItems flake host user name =
+  nixosOptItems $ hmUserOptStr flake host user name
 
-nixosHomePrograms :: FilePath -> String -> String -> RIO env (Map String OptionItem)
-nixosHomePrograms flake host user = nixosHomeItems flake host user "programs"
+nixosHomeServices
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env (Map String OptionItem)
+nixosHomeServices flake host user =
+  nixosHomeItems flake host user "services"
 
-homeItems :: FilePath -> String -> String -> RIO env (Map String OptionItem)
-homeItems flake user opt = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#homeConfigurations." <> user <> ".options." <> opt
-               , "--apply"
-               , "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or true; enable = if visible then v.enable.value or false else false; })"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+nixosHomePrograms
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env (Map String OptionItem)
+nixosHomePrograms flake host user =
+  nixosHomeItems flake host user "programs"
 
-homeServices :: FilePath -> String -> RIO env (Map String OptionItem)
+homeOptStr :: FilePath -> String -> String -> String
+homeOptStr flake user name =
+  flake <> "#homeConfigurations." <> user <> ".options." <> name
+
+homeItems
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env (Map String OptionItem)
+homeItems flake user name =
+  nixosOptItems $ homeOptStr flake user name
+
+homeServices
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env (Map String OptionItem)
 homeServices flake user = homeItems flake user "services"
 
-homePrograms :: FilePath -> String -> RIO env (Map String OptionItem)
+homePrograms
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env (Map String OptionItem)
 homePrograms flake user = homeItems flake user "programs"
 
-homePackages :: FilePath -> String -> RIO env [String]
-homePackages flake user = do
-  content <-
-    nix "eval" [ "--json"
-               , flake <> "#homeConfigurations." <> user <> ".pkgs"
-               , "--apply"
-               , "builtins.attrNames"
-               ]
-  case eitherDecode (fromString content) of
-    Left err -> throwString err
-    Right r  -> return r
+homePkgsStr :: String -> String
+homePkgsStr user =
+  "#homeConfigurations." <> user <> ".pkgs"
 
-addHostAutos :: FilePath -> String -> [String] -> RIO env ()
+homePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+homePackages flake user =
+  nixEvalAttrNames (homePkgsStr user) flake
+
+addHostAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> [String] -> RIO env ()
 addHostAutos flake hostname names = do
   let hostFile = hostFilePath flake hostname
   host <- readHost hostFile
@@ -193,7 +210,9 @@ delHostAutos flake hostname names = do
   else
     writeFlakeHost flake hostname host'
 
-addUserAutos :: FilePath -> String -> [String] -> RIO env ()
+addUserAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> [String] -> RIO env ()
 addUserAutos flake username names = do
   let userFile = userFilePath flake username
   user <- readUser userFile
@@ -245,7 +264,9 @@ listUserAutos flake username = do
   forM_ (userAutos user) $ \auto -> do
     logInfo $ fromString $ "  " <> auto
 
-searchHost :: HasLogFunc env => FilePath -> String -> String -> RIO env ()
+searchHost
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env ()
 searchHost flake hostname query = do
   modules <- nixosModules flake
   services <- nixosServices flake hostname
@@ -266,7 +287,9 @@ searchHost flake hostname query = do
     forM_ results $ \(name, kind) -> do
       logInfo $ fromString $ "  " <> name <> " (" <> kind <> ")"
 
-searchUser :: HasLogFunc env => FilePath -> String -> String -> RIO env ()
+searchUser
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> RIO env ()
 searchUser flake username query = do
   modules <- homeModules flake
   services <- homeServices flake username
