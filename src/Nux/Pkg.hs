@@ -108,13 +108,13 @@ nixosSystemPackages
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> String -> RIO env [String]
 nixosSystemPackages flake host =
-  nixEvalMapNames ("#nixosConfigurations." <> host <> ".config.environment.systemPackages") flake
+  nixEvalMapNames ("nixosConfigurations." <> host <> ".config.environment.systemPackages") flake
 
 nixosHomePackages
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> String -> String -> RIO env [String]
 nixosHomePackages flake host user = do
-  nixEvalMapNames ("#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> ".home.packages") flake
+  nixEvalMapNames ("nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> ".home.packages") flake
 
 hmUserOptStr :: FilePath -> String -> String -> String -> String
 hmUserOptStr flake host user name
@@ -160,7 +160,7 @@ homePrograms flake user = homeItems flake user "programs"
 
 homePkgsStr :: String -> String
 homePkgsStr user =
-  "#homeConfigurations." <> user <> ".pkgs"
+  "homeConfigurations." <> user <> ".pkgs"
 
 homePackages
   :: (HasProcessContext env, HasLogFunc env)

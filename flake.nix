@@ -16,9 +16,6 @@
             cabal test
           '';
           nux = pkgs.writeShellScriptBin "nux" ''
-            export NUX_FLAKE=$(dirname $(dirname $out))
-            export NUXOS_FLAKE=$NUX_FLAKE/nuxos
-            cd $NUX_FLAKE
             nix run . -- "$@"
           '';
           help = pkgs.writeShellScriptBin "help" ''
