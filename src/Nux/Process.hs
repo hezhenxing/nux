@@ -16,12 +16,13 @@ import qualified System.Exit         as Exit
 data Proc = Proc
   { procCommand :: String
   , procArgs    :: [String]
-  }
+  } deriving (Show)
 
 emptyProc :: Proc
 emptyProc = Proc
   ""
   []
+
 
 cmd :: String -> Proc
 cmd c = emptyProc { procCommand = c }
@@ -31,6 +32,20 @@ arg a p = p { procArgs = procArgs p ++ [a] }
 
 args :: [String] -> Proc -> Proc
 args as p = p { procArgs = procArgs p ++ as}
+
+env :: String -> String -> Proc -> Proc
+env k v p = p { procCommand = "env"
+              , procArgs = if procCommand p == "env"
+                  then k <> "=" <> v : procArgs p
+                  else k <> "=" <> v : procCommand p : procArgs p
+              }
+
+envs :: [(String, String)] -> Proc -> Proc
+envs kvs p = p { procCommand = "env"
+              , procArgs = if procCommand p == "env"
+                  then map (\(k, v) -> k <> "=" <> v) kvs ++ procArgs p
+                  else map (\(k, v) -> k <> "=" <> v) kvs ++ procCommand p : procArgs p
+               }
 
 shell :: Proc -> Proc
 shell p@Proc{..} = p { procCommand = "/bin/sh"
