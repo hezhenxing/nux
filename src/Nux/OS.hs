@@ -111,7 +111,13 @@ installFlake flake rootDir hostname symLink isForce = do
   logInfo $ fromString $ "Installing NuxOS to " <> rootDir
   if rootDir == "/"
     then do
-      flakeSwitch flake hostname
+      -- FIXME: nh does not support --install-bootloader
+      run $ cmd "nixos-rebuild"
+          & arg "switch"
+          & arg "--install-bootloader"
+          & arg "--flake"
+          & arg (flake <> "#" <> hostname)
+          & sudo
     else do
       flakeInstall mnt flake hostname
       umountRoot
