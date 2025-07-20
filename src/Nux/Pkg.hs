@@ -104,6 +104,24 @@ nixosPackages
 nixosPackages flake host =
   nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs") flake
 
+nixosKdePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixosKdePackages flake host =
+  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.kdePackages") flake
+
+nixosXfcePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixosXfcePackages flake host =
+  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.xfce") flake
+
+nixosHaskellPackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixosHaskellPackages flake host =
+  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.haskellPackages") flake
+
 nixosSystemPackages
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> String -> RIO env [String]
@@ -162,11 +180,41 @@ homePkgsStr :: String -> String
 homePkgsStr user =
   "homeConfigurations." <> user <> ".pkgs"
 
+homeKdePkgsStr :: String -> String
+homeKdePkgsStr user =
+  "homeConfigurations." <> user <> ".pkgs.kdePackages"
+
+homeXfcePkgsStr :: String -> String
+homeXfcePkgsStr user =
+  "homeConfigurations." <> user <> ".pkgs.xfce"
+
+homeHaskellPkgsStr :: String -> String
+homeHaskellPkgsStr user =
+  "homeConfigurations." <> user <> ".pkgs.haskellPackages"
+
 homePackages
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> String -> RIO env [String]
 homePackages flake user =
   nixEvalAttrNames (homePkgsStr user) flake
+
+homeKdePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+homeKdePackages flake user =
+  nixEvalAttrNames (homeKdePkgsStr user) flake
+
+homeXfcePackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+homeXfcePackages flake user =
+  nixEvalAttrNames (homeXfcePkgsStr user) flake
+
+homeHaskellPackages
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+homeHaskellPackages flake user =
+  nixEvalAttrNames (homeHaskellPkgsStr user) flake
 
 addHostAutos
   :: (HasProcessContext env, HasLogFunc env)
@@ -178,12 +226,18 @@ addHostAutos flake hostname names = do
   services <- nixosServices flake hostname
   programs <- nixosPrograms flake hostname
   packages <- nixosPackages flake hostname
+  kdePackages <- nixosKdePackages flake hostname
+  xfcePackages <- nixosXfcePackages flake hostname
+  haskellPackages <- nixosHaskellPackages flake hostname
   let
     go (h, unknowns) name =
       if name `elem` modules
         || Map.member name services
         || Map.member name programs
         || name `elem` packages
+        || name `elem` kdePackages
+        || name `elem` xfcePackages
+        || name `elem` haskellPackages
       then
         (addHostAuto name h, unknowns)
       else
@@ -220,12 +274,18 @@ addUserAutos flake username names = do
   services <- homeServices flake username
   programs <- homePrograms flake username
   packages <- homePackages flake username
+  kdePackages <- homeKdePackages flake username
+  xfcePackages <- homeXfcePackages flake username
+  haskellPackages <- homeHaskellPackages flake username
   let
     go (u, unknowns) name =
       if name `elem` modules
         || Map.member name services
         || Map.member name programs
         || name `elem` packages
+        || name `elem` kdePackages
+        || name `elem` xfcePackages
+        || name `elem` haskellPackages
       then
         (addUserAuto name u, unknowns)
       else
