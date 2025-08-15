@@ -231,23 +231,11 @@ searchCmd = addCommand
 runSearch :: SearchOptions -> RIO App ()
 runSearch SearchOptions{..} = do
   flake <- view flakeL
-  hostname <- view hostL
-  username <- view userL
   logInfo $ fromString $ "Searching in flake " <> flake
   if searchOptGlobal
     then do
-      logInfo $ fromString $ "Searching system packages of host " <> hostname
-      exists <- doesHostExist flake hostname
-      if exists
-        then do
-          searchHost flake hostname searchOptQuery
-      else do
-        logError $ fromString $ "Host not found: " <> hostname
+      logInfo "Searching host packages"
+      searchHost flake searchOptQuery
   else do
-    logInfo $ fromString $ "Searching user packages of user " <> username
-    existsUser <- doesUserExist flake username
-    if existsUser
-      then do
-        searchUser flake username searchOptQuery
-      else do
-        logError $ fromString $ "User not found: " <> username
+    logInfo $ fromString $ "Searching user packages"
+    searchUser flake searchOptQuery

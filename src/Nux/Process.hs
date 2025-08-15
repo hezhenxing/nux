@@ -2,6 +2,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Nux.Process where
 
+import           Data.Aeson
 import           Nux.Util
 import           Prelude             (showChar, showString)
 import           RIO
@@ -210,3 +211,30 @@ gitConfigGetEmail
   = gitConfig
   & arg "user.email"
   & readStdoutString
+
+nixEvalJsonProc :: Proc
+nixEvalJsonProc = cmd "nix" & arg "eval" & arg "--json"
+
+nixEvalAttr
+  :: (HasProcessContext env, HasLogFunc env, FromJSON a)
+  => FilePath -> String -> RIO env a
+nixEvalAttr flakeDir attrName = do
+  content <- nixEvalJsonProc
+    & arg (flakeDir <> "#" <> attrName)
+    & readStdout
+  case eitherDecode content of
+    Left err -> throwString err
+    Right  r -> return r
+
+nixEvalAttrNames
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env [String]
+nixEvalAttrNames flakeDir attrName = do
+  content <- nixEvalJsonProc
+    & arg (flakeDir <> "#" <> attrName)
+    & arg "--apply"
+    & arg "builtins.attrNames"
+    & readStdout
+  case eitherDecode content of
+    Left err -> throwString err
+    Right  r -> return r

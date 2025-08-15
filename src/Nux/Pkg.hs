@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
@@ -12,242 +13,71 @@ import qualified RIO.List    as L
 import qualified RIO.Map     as Map
 import           RIO.Process
 
-data OptionItem = OptionItem
-  { oiVisible :: Bool
-  , oiEnable  :: Bool
-  } deriving (Show)
-
-instance FromJSON OptionItem where
-  parseJSON = withObject "OptionItem" $ \v -> OptionItem
-    <$> v .: "visible"
-    <*> v .: "enable"
-
-instance ToJSON OptionItem where
-  toJSON (OptionItem visible enable) = object
-    [ "visible" .= visible
-    , "enable"  .= enable
-    ]
-
-applyAttrNames :: Proc -> Proc
-applyAttrNames p = p & arg "--apply" & arg "builtins.attrNames"
-
-applyMapNames :: Proc -> Proc
-applyMapNames p = p & arg "--apply" & arg "map (p: p.name)"
-
-nixEvalJson :: Proc
-nixEvalJson = cmd "nix" & arg "eval" & arg "--json"
-
-nixEvalAttrNames
+nixosModules
   :: (HasProcessContext env, HasLogFunc env)
-  => String -> FilePath -> RIO env [String]
-nixEvalAttrNames attrname flakeDir = do
-  content <- nixEvalJson
-    & applyAttrNames
-    & arg (flakeDir <> "#" <> attrname)
-    & readStdout
-  case eitherDecode content of
-    Left err -> throwString err
-    Right r  -> return r
+  => FilePath -> RIO env [String]
+nixosModules = flip nixEvalAttrNames "nuxos.nixosModules"
 
-nixEvalMapNames
+homeModules
   :: (HasProcessContext env, HasLogFunc env)
-  => String -> FilePath -> RIO env [String]
-nixEvalMapNames attrname flakeDir = do
-  content <- nixEvalJson
-    & applyMapNames
-    & arg (flakeDir <> "#" <> attrname)
-    & readStdout
-  case eitherDecode content of
-    Left err -> throwString err
-    Right r  -> return r
+  => FilePath -> RIO env [String]
+homeModules = flip nixEvalAttrNames "nuxos.homeModules"
 
-nixosModules :: (HasProcessContext env, HasLogFunc env) => FilePath -> RIO env [String]
-nixosModules = nixEvalAttrNames "nuxos.nixosModules"
-
-homeModules :: (HasProcessContext env, HasLogFunc env) => FilePath -> RIO env [String]
-homeModules = nixEvalAttrNames "nuxos.homeModules"
-
-applyMapAttrsOption :: Proc -> Proc
-applyMapAttrsOption p =
-  p & arg "--apply"
-    & arg "with builtins; mapAttrs (n: v: rec { visible = v.visible or v.enable.visible or (hasAttr \"enable\" v); enable = if visible then v.enable.value or false else false; })"
-
-nixosOptStr :: FilePath -> String -> String -> String
-nixosOptStr flake host name =
-  flake <> ".nixosConfigurations." <> host <> ".options." <> name
-
-nixosOptItems
+readAutos
   :: (HasProcessContext env, HasLogFunc env)
-  => String -> RIO env (Map String OptionItem)
-nixosOptItems name = do
-  content <- readStdout
-    $ nixEvalJson
-    & applyMapAttrsOption
-    & arg name
-  case eitherDecode content of
-    Left err -> throwString err
-    Right r  -> return (Map.filter oiVisible r)
+  => Bool -> FilePath -> RIO env (Map String (String, String))
+readAutos global flakeDir = do
+  modules <-
+    Map.fromList . map (\n -> (n, ("module", n)))
+      <$> if global
+            then nixosModules flakeDir
+            else homeModules flakeDir
+  optsJson <- nixEvalAttr flakeDir
+    $ if global then "nuxos.optionsJson" else "nuxos.homeOptionsJson"
+  pkgsJson <- nixEvalAttr flakeDir "nuxos.packagesJson"
+  options  <- readJson optsJson <&> Map.map ("option",)
+  packages <- readJson pkgsJson <&> Map.map ("package",)
+  return $ Map.unions [modules, options, packages]
+  where
+  readJson file = liftIO $
+    eitherDecodeFileStrict file >>= \case
+      Left err -> throwString err
+      Right  r -> return r
 
-nixosServices
+readHostAutos
   :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env (Map String OptionItem)
-nixosServices flake host = nixosOptItems $ nixosOptStr flake host "services"
+  => FilePath -> RIO env (Map String (String, String))
+readHostAutos = readAutos True
 
-nixosPrograms
+readUserAutos
   :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env (Map String OptionItem)
-nixosPrograms flake host = nixosOptItems $ nixosOptStr flake host "programs"
+  => FilePath -> RIO env (Map String (String, String))
+readUserAutos = readAutos False
 
-nixosPackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-nixosPackages flake host =
-  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs") flake
+searchAuto :: String -> Map String (String, String) -> [(String, (String, String))]
+searchAuto name autos =
+  Map.toList $ Map.filterWithKey go autos
+  where
+    go k _ = L.isInfixOf name k
 
-nixosKdePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-nixosKdePackages flake host =
-  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.kdePackages") flake
-
-nixosXfcePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-nixosXfcePackages flake host =
-  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.xfce") flake
-
-nixosHaskellPackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-nixosHaskellPackages flake host =
-  nixEvalAttrNames ("nixosConfigurations." <> host <> ".pkgs.haskellPackages") flake
-
-nixosSystemPackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-nixosSystemPackages flake host =
-  nixEvalMapNames ("nixosConfigurations." <> host <> ".config.environment.systemPackages") flake
-
-nixosHomePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env [String]
-nixosHomePackages flake host user = do
-  nixEvalMapNames ("nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> ".home.packages") flake
-
-hmUserOptStr :: FilePath -> String -> String -> String -> String
-hmUserOptStr flake host user name
-  = flake <> "#nixosConfigurations." <> host <> ".config.home-manager.users." <> user <> "." <> name
-
-nixosHomeItems
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> String -> RIO env (Map String OptionItem)
-nixosHomeItems flake host user name =
-  nixosOptItems $ hmUserOptStr flake host user name
-
-nixosHomeServices
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env (Map String OptionItem)
-nixosHomeServices flake host user =
-  nixosHomeItems flake host user "services"
-
-nixosHomePrograms
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env (Map String OptionItem)
-nixosHomePrograms flake host user =
-  nixosHomeItems flake host user "programs"
-
-homeOptStr :: FilePath -> String -> String -> String
-homeOptStr flake user name =
-  flake <> "#homeConfigurations." <> user <> ".options." <> name
-
-homeItems
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env (Map String OptionItem)
-homeItems flake user name =
-  nixosOptItems $ homeOptStr flake user name
-
-homeServices
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env (Map String OptionItem)
-homeServices flake user = homeItems flake user "services"
-
-homePrograms
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env (Map String OptionItem)
-homePrograms flake user = homeItems flake user "programs"
-
-homePkgsStr :: String -> String
-homePkgsStr user =
-  "homeConfigurations." <> user <> ".pkgs"
-
-homeKdePkgsStr :: String -> String
-homeKdePkgsStr user =
-  "homeConfigurations." <> user <> ".pkgs.kdePackages"
-
-homeXfcePkgsStr :: String -> String
-homeXfcePkgsStr user =
-  "homeConfigurations." <> user <> ".pkgs.xfce"
-
-homeHaskellPkgsStr :: String -> String
-homeHaskellPkgsStr user =
-  "homeConfigurations." <> user <> ".pkgs.haskellPackages"
-
-homePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-homePackages flake user =
-  nixEvalAttrNames (homePkgsStr user) flake
-
-homeKdePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-homeKdePackages flake user =
-  nixEvalAttrNames (homeKdePkgsStr user) flake
-
-homeXfcePackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-homeXfcePackages flake user =
-  nixEvalAttrNames (homeXfcePkgsStr user) flake
-
-homeHaskellPackages
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env [String]
-homeHaskellPackages flake user =
-  nixEvalAttrNames (homeHaskellPkgsStr user) flake
-
-addHostAutos
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> [String] -> RIO env ()
+addHostAutos ::  (HasProcessContext env, HasLogFunc env) => FilePath -> String -> [String] -> RIO env ()
 addHostAutos flake hostname names = do
+  autos <- readHostAutos flake
   let hostFile = hostFilePath flake hostname
   host <- readHost hostFile
-  modules <- nixosModules flake
-  services <- nixosServices flake hostname
-  programs <- nixosPrograms flake hostname
-  packages <- nixosPackages flake hostname
-  kdePackages <- nixosKdePackages flake hostname
-  xfcePackages <- nixosXfcePackages flake hostname
-  haskellPackages <- nixosHaskellPackages flake hostname
   let
-    go (h, unknowns) name =
-      if name `elem` modules
-        || Map.member name services
-        || Map.member name programs
-        || name `elem` packages
-        || name `elem` kdePackages
-        || name `elem` xfcePackages
-        || name `elem` haskellPackages
-      then
-        (addHostAuto name h, unknowns)
-      else
-        (h, name:unknowns)
-  let (host', unknowns) = foldl' go (host, []) (L.nub names)
-  if unknowns /= []
-  then do
+    go (rs, unknowns) name = case Map.lookup name autos of
+      Nothing ->
+         (rs, name:unknowns)
+      Just v ->
+        ((name, v):rs, unknowns)
+  let (rs, unknowns) = foldl' go ([], []) (L.nub names)
+  when (unknowns /= []) $ do
     throwString $ fromString $ "system packages not found: " <> show unknowns
-  else do
-    writeHost hostFile host'
+  logInfo "Summary of host packages, options or modules to add:"
+  forM_ rs $ \(name, (kind, attr)) -> do
+    logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
+  writeHost hostFile host { hostAutos = hostAutos host ++ map fst rs}
 
 delHostAutos :: FilePath -> String -> [String] -> RIO env ()
 delHostAutos flake hostname names = do
@@ -264,38 +94,24 @@ delHostAutos flake hostname names = do
   else
     writeFlakeHost flake hostname host'
 
-addUserAutos
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> [String] -> RIO env ()
+addUserAutos :: (HasProcessContext env, HasLogFunc env) => FilePath -> String -> [String] -> RIO env ()
 addUserAutos flake username names = do
+  autos <- readUserAutos flake
   let userFile = userFilePath flake username
   user <- readUser userFile
-  modules <- homeModules flake
-  services <- homeServices flake username
-  programs <- homePrograms flake username
-  packages <- homePackages flake username
-  kdePackages <- homeKdePackages flake username
-  xfcePackages <- homeXfcePackages flake username
-  haskellPackages <- homeHaskellPackages flake username
   let
-    go (u, unknowns) name =
-      if name `elem` modules
-        || Map.member name services
-        || Map.member name programs
-        || name `elem` packages
-        || name `elem` kdePackages
-        || name `elem` xfcePackages
-        || name `elem` haskellPackages
-      then
-        (addUserAuto name u, unknowns)
-      else
-        (u, name:unknowns)
-  let (user', unknowns) = foldl' go (user, []) (L.nub names)
-  if unknowns /= []
-  then do
+    go (rs, unknowns) name = case Map.lookup name autos of
+      Nothing ->
+        (rs, name:unknowns)
+      Just v ->
+        ((name, v):rs, unknowns)
+  let (rs, unknowns) = foldl' go ([], []) (L.nub names)
+  when (unknowns /= []) $ do
     throwString $ fromString $ "user packages not found: " <> show unknowns
-  else do
-    writeUser userFile user'
+  logInfo "Summary of home packages, options or modules to add:"
+  forM_ rs $ \(name, (kind, attr)) -> do
+    logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
+  writeUser userFile user { userAutos = userAutos user ++ map fst rs}
 
 delUserAutos :: FilePath -> String -> [String] -> RIO env ()
 delUserAutos flake username names = do
@@ -324,48 +140,24 @@ listUserAutos flake username = do
   forM_ (userAutos user) $ \auto -> do
     logInfo $ fromString $ "  " <> auto
 
-searchHost
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env ()
-searchHost flake hostname query = do
-  modules <- nixosModules flake
-  services <- nixosServices flake hostname
-  programs <- nixosPrograms flake hostname
-  packages <- nixosPackages flake hostname
-  let matchModules = filter (L.isInfixOf query) modules
-      matchServices = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) services
-      matchPrograms = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) programs
-      matchPackages = filter (L.isInfixOf query) packages
-  let results = map (, "module") matchModules
-        ++ map (, "service") matchServices
-        ++ map (, "program") matchPrograms
-        ++ map (, "package") matchPackages
+searchHost :: (HasProcessContext env, HasLogFunc env) => FilePath -> String -> RIO env ()
+searchHost flake query = do
+  autos <- readHostAutos flake
+  let results = searchAuto query autos
   if null results
   then do
     logInfo "No matching results found."
   else do
-    forM_ results $ \(name, kind) -> do
-      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ")"
+    forM_ results $ \(name, (kind, attr)) -> do
+      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
 
-searchUser
-  :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> String -> RIO env ()
-searchUser flake username query = do
-  modules <- homeModules flake
-  services <- homeServices flake username
-  programs <- homePrograms flake username
-  packages <- homePackages flake username
-  let matchModules = filter (L.isInfixOf query) modules
-      matchServices = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) services
-      matchPrograms = Map.keys $ Map.filterWithKey (\k _ -> L.isInfixOf query k) programs
-      matchPackages = filter (L.isInfixOf query) packages
-  let results = map (, "module") matchModules
-        ++ map (, "service") matchServices
-        ++ map (, "program") matchPrograms
-        ++ map (, "package") matchPackages
+searchUser :: (HasProcessContext env, HasLogFunc env) => FilePath -> String -> RIO env ()
+searchUser flake query = do
+  autos <- readUserAutos flake
+  let results = searchAuto query autos
   if null results
   then do
     logInfo "No matching results found."
   else do
-    forM_ results $ \(name, kind) -> do
-      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ")"
+    forM_ results $ \(name, (kind, attr)) -> do
+      logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"

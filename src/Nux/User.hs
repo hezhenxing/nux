@@ -110,14 +110,6 @@ newUser desc email = emptyUser
 nuxUser :: User
 nuxUser = newUser "Nux User" "nux@localhost"
 
-addUserAuto :: String -> User -> User
-addUserAuto name user =
-    user { userAutos = name : userAutos user }
-
-delUserAuto :: String -> User -> User
-delUserAuto name user =
-  user { userAutos = L.delete name (userAutos user) }
-
 data UserInfo = UserInfo
   { userInfoUid         :: Int
   , userInfoGid         :: Int

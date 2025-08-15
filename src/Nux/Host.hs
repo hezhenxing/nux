@@ -112,15 +112,6 @@ addFlakeHost flake hostname host = do
   writeFlakeHostNix flake hostname
   writeFlakeHost flake hostname host
 
-addHostAuto :: String -> Host -> Host
-addHostAuto auto host = host
-  { hostAutos = auto : hostAutos host
-  }
-
-delHostAuto :: String -> Host -> Host
-delHostAuto auto host@Host{..} =
-  host { hostAutos = L.delete auto hostAutos }
-
 emptyHost :: Host
 emptyHost = Host
   { hostSystem = ""
