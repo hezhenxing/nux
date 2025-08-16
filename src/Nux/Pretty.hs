@@ -19,9 +19,9 @@ module Nux.Pretty
   , showList'
   ) where
 
-import RIO
-import qualified RIO.List as L
-import Prettyprinter
+import           Prettyprinter
+import           RIO
+import qualified RIO.List      as L
 
 encloseWith :: Doc ann -> Doc ann -> [Doc ann] -> Doc ann
 encloseWith l r [] = l <+> r
@@ -40,7 +40,7 @@ prettyAttrs m = encloseWith "{" "}" $ map prettyAttr m
 
 prettyArg :: Pretty v => (String, Maybe v) -> Doc ann
 prettyArg (k, Nothing) = pretty k
-prettyArg (k, Just v) = pretty k <> " ? " <> pretty v
+prettyArg (k, Just v)  = pretty k <> " ? " <> pretty v
 
 prettyArgs :: Pretty v => [(String, Maybe v)] -> Doc ann
 prettyArgs m = braces $ hsep $ punctuate "," $ map prettyArg $ m
@@ -53,7 +53,7 @@ showPretty = show . pretty
 
 showArg :: Show v => (String, Maybe v) -> String
 showArg (k, Nothing) = k
-showArg (k, Just v) = k ++ " ? " ++ show v
+showArg (k, Just v)  = k ++ " ? " ++ show v
 
 showArgs :: Show v => [(String, Maybe v)] -> String
 showArgs m = "{" ++ L.intercalate ", " (map showArg m) ++ "}"

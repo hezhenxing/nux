@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
 module Nux.Host where
 
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
+import           Nux.Process
 import           Nux.Util
 import           RIO
 import qualified RIO.ByteString.Lazy      as BL
@@ -14,6 +14,7 @@ import           RIO.File
 import           RIO.FilePath
 import qualified RIO.List                 as L
 import qualified RIO.Map                  as Map
+import           RIO.Process
 
 data FileSystem = FileSystem
   { fsDevice  :: String
@@ -156,3 +157,9 @@ initHost system profile language timezone filesystems autos = do
                    , hostFileSystems = filesystems
                    , hostAutos    = autos
                    }
+
+nixosFileSystems
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env FileSystems
+nixosFileSystems flake host =
+  nixEvalAttr flake $ "nixosConfigurations." <> host <> ".config.fileSystems"

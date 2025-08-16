@@ -1,15 +1,15 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.FS where
 
-import RIO
-import RIO.FilePath
-import qualified RIO.List as L
-import qualified RIO.Map as Map
-import Nux.Options
-import Nux.Host
-import Nux.Util
+import           Nux.Host
+import           Nux.Options
+import           Nux.Util
+import           RIO
+import           RIO.FilePath
+import qualified RIO.List     as L
+import qualified RIO.Map      as Map
 
 fsCmds :: Command (RIO App ())
 fsCmds = addSubCommands
@@ -86,22 +86,38 @@ runDel DelOptions{..} = do
   writeHost hostFile $ host { hostFileSystems = Map.delete delOptMountPoint (hostFileSystems host) }
   logInfo $ fromString $ "Successfully deleted filesystem " <> delOptMountPoint <> "!"
 
+data ListOptions = ListOptions
+  { listOptAll :: Bool
+  }
+
 listCmd :: Command (RIO App ())
 listCmd = addCommand
   "list"
   "List filesystems in configuration"
-  (const runList)
-  (pure ())
+  runList
+  (ListOptions
+    <$> switch ( long "all"
+              <> short 'a'
+              <> help "Show all filesystems, including root and boot filesystems"
+               )
+  )
 
-runList :: RIO App ()
-runList = do
+runList :: ListOptions -> RIO App ()
+runList ListOptions{..} = do
   flake <- view flakeL
   hostname <- view hostL
-  let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
-  host <- readHost hostFile
-  logInfo $ fromString $ "Filesystem    Device     Type      Options"
-  forM_ (Map.toList (hostFileSystems host)) $ \(mp, fs) -> do
-    logInfo $ fromString $ mp <> " " <> fsDevice fs <> " " <> fsType fs <> " " <> L.intercalate "," (fsOptions fs)
+  fs <- if listOptAll
+    then nixosFileSystems flake hostname
+    else do
+      let hostFile = flake </> "nix/hosts" </> hostname </> "host.json"
+      hostFileSystems <$> readHost hostFile
+  logInfo
+    $ fromString
+    $ printTable
+    $ hdr : map go (Map.toList fs)
+   where
+    hdr = ["Filesystem", "Device", "Type", "Options"]
+    go (k, f) = [k, fsDevice f, fsType f, L.intercalate "," (fsOptions f)]
 
 data EditOptions = EditOptions
   { editOptNewMountPoint :: String

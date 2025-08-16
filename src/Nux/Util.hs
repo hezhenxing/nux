@@ -7,6 +7,7 @@ import           RIO
 import           RIO.Char                 (isSpace)
 import           RIO.Directory
 import qualified RIO.List                 as L
+import qualified RIO.List.Partial         as L
 import qualified System.Environment.Blank as Env
 
 split :: Eq a => a -> [a] -> [[a]]
@@ -78,3 +79,10 @@ followLink path = do
   if isLink
     then getSymbolicLinkTarget path
     else return path
+
+printTable :: [[String]] -> String
+printTable rows = L.unlines $ map putRow rows
+  where
+    widths = map ((+1) . L.maximum . map length ) (L.transpose rows)
+    putCell n s = s <> L.replicate (n - length s) ' '
+    putRow = concat . zipWith putCell widths
