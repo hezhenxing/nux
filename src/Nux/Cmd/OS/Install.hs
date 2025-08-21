@@ -16,7 +16,6 @@ import           SimplePrompt  (yesNo)
 
 data InstallOptions = InstallOptions
   { installOptRootDev   :: String
-  , installOptYes       :: Bool
   , installlOptGenerate :: Bool
   , installOptFormat    :: Bool
   , installOptLink      :: Bool
@@ -33,10 +32,6 @@ installCmd = addCommand
                  <> help "Root device to install Nux system"
                  <> value ""
                  )
-    <*> switch ( long "yes"
-              <> short 'y'
-              <> help "Assume yes for all prompts asking for confirmation"
-               )
     <*> switch ( long "generate"
               <> short 'g'
               <> help "Generate hardware configuration even if it already exists"
@@ -56,6 +51,7 @@ installCmd = addCommand
 
 runInstall :: InstallOptions -> RIO App ()
 runInstall InstallOptions{..} = do
+  yes <- view yesL
   hostname <- view hostL
   isForce <- view forceL
   flake <- makeAbsolute installOptFlake
@@ -66,9 +62,9 @@ runInstall InstallOptions{..} = do
       logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to current system"
     else
       logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to root device " <> rootDev
-  unless installOptYes $ do
-    yes <- yesNo "Do you want to continue the installation"
-    unless yes $ die "user cancelled installation!"
+  unless yes $ do
+    y <- yesNo "Do you want to continue the installation"
+    unless y $ die "user cancelled installation!"
   rootDir <- prepareRoot rootDev installOptFormat isForce
   generateHardwareConfig rootDir hostDir installlOptGenerate
   installFlake flake rootDir hostname installOptLink isForce

@@ -24,8 +24,12 @@ main = do
                   <> help "Verbose output?"
                  )
       <*> switch ( long "force"
-                     <> help "Force overwrite existing files"
-                    )
+                <> help "Force overwrite existing files"
+                 )
+      <*> switch ( long "yes"
+                <> short 'y'
+                <> help "Assume yes for all confirmation prompts"
+                 )
       <*> strOption ( long "url"
                      <> metavar "URL"
                      <> value "github:hezhenxing/nuxos"

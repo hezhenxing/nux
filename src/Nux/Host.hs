@@ -40,7 +40,6 @@ data Host = Host
   { hostSystem      :: String
   , hostLanguage    :: String
   , hostTimezone    :: String
-  , hostProfile     :: String
   , hostFileSystems :: FileSystems
   , hostAutos       :: [String]
   } deriving (Show, Generic)
@@ -50,16 +49,14 @@ instance FromJSON Host where
     <$> v .:  "system"
     <*> v .:? "language"    .!= ""
     <*> v .:? "timezone"    .!= ""
-    <*> v .:? "profile"     .!= ""
     <*> v .:? "fileSystems" .!= mempty
     <*> v .:? "autos"       .!= []
 
 instance ToJSON Host where
-   toJSON (Host sys lang tz prof fs autos) = object $
+   toJSON (Host sys lang tz fs autos) = object $
     ["system"         .= sys]
     ++ ["language"    .= lang  | lang  /= ""]
     ++ ["timezone"    .= tz    | tz    /= ""]
-    ++ ["profile"     .= prof  | prof  /= ""]
     ++ ["fileSystems" .= fs    | fs    /= mempty]
     ++ ["autos"       .= autos | autos /= []]
 
@@ -118,7 +115,6 @@ emptyHost = Host
   { hostSystem = ""
   , hostLanguage = ""
   , hostTimezone = ""
-  , hostProfile = ""
   , hostFileSystems = mempty
   , hostAutos = []
   }
@@ -139,11 +135,10 @@ initHost
   :: String
   -> String
   -> String
-  -> String
   -> FileSystems
   -> [String]
   -> RIO env Host
-initHost system profile language timezone filesystems autos = do
+initHost system language timezone filesystems autos = do
   lang <- if language == ""
     then getEnvDefault "LANG" ""
     else return language
@@ -151,7 +146,6 @@ initHost system profile language timezone filesystems autos = do
     then currentTimeZone
     else return timezone
   return emptyHost { hostSystem   = system
-                   , hostProfile  = profile
                    , hostLanguage = lang
                    , hostTimezone = tz
                    , hostFileSystems = filesystems

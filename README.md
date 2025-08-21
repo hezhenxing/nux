@@ -19,13 +19,13 @@ nix shell github:hezhenxing/nux
 First use `os init` command to initialize a NuxOS configuration:
 
 ```shell
-nux os init nuxos-config --profile kde --language zh_CN.UTF-8 --timezone Asia/Shanghai
+nux os init nuxos-config --packages plasma --user-packages helix,direnv --language zh_CN.UTF-8 --timezone Asia/Shanghai
 ```
 
-It will create a `nuxos-config` directory in current directory and initialize a NuxOS configuration with given profile (a predefined set of environments, other support profiles: gnome, budgie, hyprland, xmonad, etc.). It will also automatically add a host and a user to the configuration base on your current host name and user name. If you don't like it, you can modify them with `host` and `user` commands or specify host and user options when issuing the `os init` command.
+It will create a `nuxos-config` directory in current directory and initialize a NuxOS configuration. It will also automatically add a host and a user to the configuration base on your current host name and user name. If you don't like it, you can modify them with `host` and `user` commands or specify host and user options when issuing the `os init` command.
 
 ```shell
-nux os init nuxos-config --profile gnome --user harry --description "Harry Potter" --email "harry.potter@hogwarts.edu"
+nux os init nuxos-config --packages gnome --user harry --description "Harry Potter" --email "harry.potter@hogwarts.edu"
 ```
 
 Please use `--help` to looking for more information of available commands and options.

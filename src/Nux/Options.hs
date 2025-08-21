@@ -6,6 +6,7 @@ module Nux.Options
   , HasUrl(..)
   , HasFlake(..)
   , HasForce(..)
+  , HasYes(..)
   , HasSystem(..)
   , HasHost(..)
   , HasUser(..)
@@ -23,6 +24,7 @@ import           RIO.Process
 data Options = Options
   { optVerbose :: Bool
   , optForce   :: Bool
+  , optYes     :: Bool
   , optUrl     :: String
   , optFlake   :: FilePath
   , optSystem  :: String
@@ -58,6 +60,12 @@ class HasForce env where
 instance HasForce App where
   forceL = lens (optForce . appOptions)
     (\x y -> x { appOptions = (appOptions x) { optForce = y } })
+
+class HasYes env where
+  yesL :: Lens' env Bool
+instance HasYes App where
+  yesL = lens (optYes . appOptions)
+    (\x y -> x { appOptions = (appOptions x) { optYes = y } })
 
 class HasSystem env where
   systemL :: Lens' env String

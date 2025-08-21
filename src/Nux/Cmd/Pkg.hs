@@ -46,6 +46,7 @@ installCmd = addCommand
 
 runInstall :: InstallOptions -> RIO App ()
 runInstall InstallOptions{..} = do
+  yes <- view yesL
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
@@ -53,13 +54,10 @@ runInstall InstallOptions{..} = do
   if installOptGlobal
     then do
       logInfo $ fromString $ "Adding system packages to host " <> hostname
-      addHostAutos flake hostname installOptNames
+      addHostAutos flake hostname installOptNames yes True
     else do
       logInfo $ fromString $ "Adding user packages to user " <> username
-      addUserAutos flake username installOptNames
-  logInfo "Building and switching NuxOS configuration"
-  flakeSwitch flake hostname
-  logInfo "Successfully installed system packages!"
+      addUserAutos flake hostname username installOptNames yes True
 
 data RemoveOptions = RemoveOptions
   { removeOptGlobal :: Bool
@@ -119,18 +117,17 @@ addCmd = addCommand
 
 runAdd :: AddOptions -> RIO App ()
 runAdd AddOptions{..} = do
+  yes <- view yesL
   flake <- view flakeL
   hostname <- view hostL
   username <- view userL
   if addOptGlobal
   then do
     logInfo $ fromString $ "Adding packages to host " <> hostname
-    addHostAutos flake hostname addOptNames
-    logInfo $ fromString $ "Successfully added host packages!"
+    addHostAutos flake hostname addOptNames yes False
   else do
     logInfo $ fromString $ "Adding packages to user " <> username
-    addUserAutos flake username addOptNames
-    logInfo $ fromString $ "Successfully added user packages!"
+    addUserAutos flake hostname username addOptNames yes False
 
 data DelOptions = DelOptions
   { delOptNames  :: [String]
@@ -237,5 +234,5 @@ runSearch SearchOptions{..} = do
       logInfo "Searching host packages"
       searchHost flake searchOptQuery
   else do
-    logInfo $ fromString $ "Searching user packages"
+    logInfo "Searching user packages"
     searchUser flake searchOptQuery

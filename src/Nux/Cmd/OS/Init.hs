@@ -14,7 +14,6 @@ import           RIO.Directory
 
 data InitOptions = InitOptions
   { initOptPath         :: FilePath
-  , initOptProfile      :: String
   , initOptLanguage     :: String
   , initOptTimezone     :: String
   , initOptPackages     :: [String]
@@ -34,11 +33,6 @@ initCmd = addCommand
     <$> strArgument ( metavar "PATH"
                    <> help "Directory path to create NuxOS configuration"
                     )
-    <*> strOption ( long "profile"
-                 <> short 'r'
-                 <> help "Profile to use"
-                 <> value ""
-                  )
     <*> strOption ( long "language"
                  <> short 'l'
                  <> help "Language of the system"
@@ -92,7 +86,6 @@ runInit InitOptions{..} = do
   let filesystems = mempty
   host <- initHost
     system
-    initOptProfile
     initOptLanguage
     initOptTimezone
     filesystems

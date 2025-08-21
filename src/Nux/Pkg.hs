@@ -9,9 +9,11 @@ import           Nux.Host
 import           Nux.Process
 import           Nux.User
 import           RIO
-import qualified RIO.List    as L
-import qualified RIO.Map     as Map
+import qualified RIO.List     as L
+import qualified RIO.Map      as Map
+import           RIO.Orphans  ()
 import           RIO.Process
+import           SimplePrompt
 
 nixosModules
   :: (HasProcessContext env, HasLogFunc env)
@@ -60,24 +62,45 @@ searchAuto name autos =
   where
     go k _ = L.isInfixOf name k
 
-addHostAutos ::  (HasProcessContext env, HasLogFunc env) => FilePath -> String -> [String] -> RIO env ()
-addHostAutos flake hostname names = do
-  autos <- readHostAutos flake
-  let hostFile = hostFilePath flake hostname
-  host <- readHost hostFile
+addHostAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> [String] -> Bool -> Bool -> RIO env ()
+addHostAutos flakeDir hostName names yes switch = do
+  let hostFile = userFilePath flakeDir hostName
+  host <- readFlakeHost flakeDir hostName
+  autos <- readHostAutos flakeDir
+  let ns = L.nub names L.\\ hostAutos host
   let
     go (rs, unknowns) name = case Map.lookup name autos of
       Nothing ->
-         (rs, name:unknowns)
+        (rs, name:unknowns)
       Just v ->
         ((name, v):rs, unknowns)
-  let (rs, unknowns) = foldl' go ([], []) (L.nub names)
-  when (unknowns /= []) $ do
-    throwString $ fromString $ "system packages not found: " <> show unknowns
-  logInfo "Summary of host packages, options or modules to add:"
-  forM_ rs $ \(name, (kind, attr)) -> do
-    logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
-  writeHost hostFile host { hostAutos = hostAutos host ++ map fst rs}
+  let (rs, unknowns) = foldl' go ([], []) (L.nub ns)
+  when (L.nub names L.\\ ns /= []) $ do
+    logInfo "The following have already been installed: "
+    forM_ ns $ \n -> do
+      logInfo $ fromString $ " " <> n
+  if unknowns /= []
+    then do
+      logInfo "Unknown host packages, options or modules:"
+      forM_ unknowns $ \n -> do
+        logInfo $ fromString $ "  " <> n
+    else if null ns
+      then do
+        logInfo "No new packages to install"
+      else do
+        logInfo "Adding the following to host configuration:"
+        forM_ rs $ \(name, (kind, attr)) -> do
+          logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
+        unless yes $ do
+          y <- yesNo "Do you want to continue the operation"
+          unless y $ die "user cancelled operation!"
+        writeHost hostFile host { hostAutos = hostAutos host ++ ns}
+        when switch $ do
+          logInfo "Building and switching NuxOS configuration"
+          flakeSwitch flakeDir hostName
+          logInfo "Successfully installed host packages!"
 
 delHostAutos :: FilePath -> String -> [String] -> RIO env ()
 delHostAutos flake hostname names = do
@@ -94,24 +117,45 @@ delHostAutos flake hostname names = do
   else
     writeFlakeHost flake hostname host'
 
-addUserAutos :: (HasProcessContext env, HasLogFunc env) => FilePath -> String -> [String] -> RIO env ()
-addUserAutos flake username names = do
-  autos <- readUserAutos flake
-  let userFile = userFilePath flake username
-  user <- readUser userFile
+addUserAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> String -> [String] -> Bool -> Bool -> RIO env ()
+addUserAutos flakeDir hostName userName names yes switch = do
+  let userFile = userFilePath flakeDir userName
+  user <- readFlakeUser flakeDir userName
+  autos <- readUserAutos flakeDir
+  let ns = L.nub names L.\\ userAutos user
   let
     go (rs, unknowns) name = case Map.lookup name autos of
       Nothing ->
         (rs, name:unknowns)
       Just v ->
         ((name, v):rs, unknowns)
-  let (rs, unknowns) = foldl' go ([], []) (L.nub names)
-  when (unknowns /= []) $ do
-    throwString $ fromString $ "user packages not found: " <> show unknowns
-  logInfo "Summary of home packages, options or modules to add:"
-  forM_ rs $ \(name, (kind, attr)) -> do
-    logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
-  writeUser userFile user { userAutos = userAutos user ++ map fst rs}
+  let (rs, unknowns) = foldl' go ([], []) (L.nub ns)
+  when (L.nub names L.\\ ns /= []) $ do
+    logInfo "The following have already been installed: "
+    forM_ ns $ \n -> do
+      logInfo $ fromString $ " " <> n
+  if unknowns /= []
+    then do
+      logInfo "Unknown home packages, options or modules:"
+      forM_ unknowns $ \n -> do
+        logInfo $ fromString $ "  " <> n
+    else if null ns
+      then do
+        logInfo "No new packages to install"
+      else do
+        logInfo "Adding the following to home configuration:"
+        forM_ rs $ \(name, (kind, attr)) -> do
+          logInfo $ fromString $ "  " <> name <> " (" <> kind <> ": " <> attr <> ")"
+        unless yes $ do
+          y <- yesNo "Do you want to continue the operation"
+          unless y $ die "user cancelled operation!"
+        writeUser userFile user { userAutos = userAutos user ++ ns}
+        when switch $ do
+          logInfo "Building and switching NuxOS configuration"
+          flakeSwitch flakeDir hostName
+          logInfo "Successfully installed user packages!"
 
 delUserAutos :: FilePath -> String -> [String] -> RIO env ()
 delUserAutos flake username names = do

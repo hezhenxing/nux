@@ -130,7 +130,6 @@ data EditOptions = EditOptions
   { editOptSystem   :: String
   , editOptLanguage :: String
   , editOptTimezone :: String
-  , editOptProfile  :: String
   }
 
 editCmd :: Command (RIO App ())
@@ -154,11 +153,6 @@ editCmd = addCommand
                  <> help "New timezone for the host"
                  <> value ""
                   )
-    <*> strOption ( long "profile"
-                 <> short 'r'
-                 <> help "New profile for the host"
-                 <> value ""
-                  )
   )
 
 runEdit :: EditOptions -> RIO App ()
@@ -174,7 +168,6 @@ runEdit EditOptions{..} = do
       let host = h { hostSystem   = editOptSystem   `nullOr` hostSystem h
                    , hostLanguage = editOptLanguage `nullOr` hostLanguage h
                    , hostTimezone = editOptTimezone `nullOr` hostTimezone h
-                   , hostProfile  = editOptProfile  `nullOr` hostProfile h
                    }
       writeHost hostFile host
       logInfo $ fromString $ "Successfully updated host " <> hostname <> "!"
@@ -216,7 +209,6 @@ runShow ShowOptions{..} = do
             [ "  system:      " <> hostSystem h
             , "  language:    " <> hostLanguage h
             , "  timezone:    " <> hostTimezone h
-            , "  profile:     " <> hostProfile h
             , "  filesystems: " <> show (hostFileSystems h)
             , "  packages:    " <> show (hostAutos h)
             ]
