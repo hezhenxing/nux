@@ -1,5 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Nux.Cmd.OS.Update
   ( updateCmd
   ) where
@@ -10,15 +11,24 @@ import           Nux.Util
 import           RIO
 import           SimplePrompt
 
+data UpdateOptions = UpdateOptions
+  { updateOptTest :: Bool
+  }
+
 updateCmd :: Command (RIO App ())
 updateCmd = addCommand
   "update"
   "Update flake lock file"
-  (const runUpdate)
-  (pure ())
+  runUpdate
+  (UpdateOptions
+    <$> switch
+      ( long "test"
+     <> short 't'
+     <> help "Build and activate the update without making it the boot default" )
+  )
 
-runUpdate :: RIO App ()
-runUpdate = do
+runUpdate :: UpdateOptions -> RIO App ()
+runUpdate UpdateOptions{..} = do
   yes <- view yesL
   flake <- view flakeL >>= followLink
   hostname <- view hostL
@@ -29,5 +39,7 @@ runUpdate = do
     y <- yesNo "Do you want to upgrade the system"
     unless y $ die "user cancelled upgrade"
   logInfo "Upgrading the system"
-  flakeSwitch flake hostname
+  if updateOptTest
+    then flakeTest flake hostname
+    else flakeSwitch flake hostname
   logInfo "Successfully upgraded system!"

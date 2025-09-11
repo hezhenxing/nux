@@ -111,6 +111,18 @@ flakeSwitch flakeDir hostname
   & arg hostname
   & run
 
+flakeTest
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> RIO env ()
+flakeTest flakeDir hostname
+  = cmd "nh"
+  & arg "os"
+  & arg "test"
+  & arg flakeDir
+  & arg "--hostname"
+  & arg hostname
+  & run
+
 flakeInstall
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> FilePath -> String -> RIO env ()

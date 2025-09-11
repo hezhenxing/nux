@@ -9,6 +9,7 @@ import           Nux.Cmd.OS.Install
 import           Nux.Cmd.OS.List
 import           Nux.Cmd.OS.Rollback
 import           Nux.Cmd.OS.Switch
+import           Nux.Cmd.OS.Test
 import           Nux.Cmd.OS.Update
 import           Nux.Cmd.OS.VM
 import           Nux.Options
@@ -25,4 +26,5 @@ osCmds = addSubCommands
       switchCmd
       vmCmd
       listCmd
+      testCmd
   )

@@ -43,4 +43,4 @@ runSwitch SwitchOptions{..} = do
           & sudo
     else
       flakeSwitch flake hostname
-  logInfo "Successfully upgraded system!"
+  logInfo "Successfully switched system!"

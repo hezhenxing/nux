@@ -32,10 +32,10 @@ encloseWith l r xs =
   <> line
   <> r
 
-prettyAttr :: Pretty v => (String, v) -> Doc ann
+prettyAttr :: (Pretty k, Pretty v) => (k, v) -> Doc ann
 prettyAttr (k, v) = pretty k <+> "=" <+> pretty v <> ";"
 
-prettyAttrs :: Pretty v => [(String, v)] -> Doc ann
+prettyAttrs :: (Pretty k, Pretty v) => [(k, v)] -> Doc ann
 prettyAttrs m = encloseWith "{" "}" $ map prettyAttr m
 
 prettyArg :: Pretty v => (String, Maybe v) -> Doc ann
@@ -62,7 +62,7 @@ showVArgs :: Show v => [(String, Maybe v)] -> String
 showVArgs m = "{" ++ L.intercalate ", " (map showArg m) ++ ", ...}"
 
 showAttr :: Show v => (String, v) -> String
-showAttr (k, v) = k ++ "=" ++ show v ++ ";"
+showAttr (k, v) = k ++ " = " ++ show v ++ ";"
 
 showAttrs :: Show v => [(String, v)] -> String
 showAttrs = wrapWith "{" "}" . showAttrs'
