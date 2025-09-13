@@ -8,7 +8,6 @@ import           Prelude             (read, showChar, showString)
 import           RIO
 import qualified RIO.ByteString.Lazy as BL
 import           RIO.Char
-import           RIO.FilePath
 import qualified RIO.List            as L
 import           RIO.Process
 import qualified RIO.Text            as T
@@ -149,11 +148,15 @@ exit = liftIO . exitWith . code
     code 0 = ExitSuccess
     code n = ExitFailure n
 
-mkdir :: FilePath -> Proc
-mkdir path = cmd "mkdir" & arg "-p" & arg path
+mkdir
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> RIO env ()
+mkdir path = cmd "mkdir" & arg "-p" & arg path & run
 
-cp :: FilePath -> FilePath -> Proc
-cp src tgt = cmd "cp" & arg "-r" & arg src & arg tgt
+cp
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> FilePath -> RIO env ()
+cp src tgt = cmd "cp" & arg "-r" & arg src & arg tgt & run
 
 mkfs
   :: (HasProcessContext env, HasLogFunc env)

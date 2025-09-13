@@ -202,7 +202,7 @@ generateHardwareConfig rootDir hostDir isForce = do
   exists <- doesFileExist hwFile
   if exists && not isForce
     then do
-      logWarn "Hardware config already exists, add --generate to re-generate"
+      throwString "Hardware config already exists, add --force to overwrite"
     else do
       logInfo $ fromString "Generating hardware configuration"
       hwConfig <-
@@ -226,7 +226,7 @@ generateDrivers hostDir isForce = do
   exists <- doesFileExist drvFile
   if exists && not isForce
     then do
-      logWarn "Drivers config already exists, add --generate to re-generate"
+      throwString "Drivers config already exists, add --force to overwrite"
     else do
       logInfo $ fromString "Generating drivers configuration"
       devices <- listDirectory "/sys/bus/pci/devices"

@@ -15,11 +15,10 @@ import           RIO.FilePath
 import           SimplePrompt  (yesNo)
 
 data InstallOptions = InstallOptions
-  { installOptRootDev  :: String
-  , installOptGenerate :: Bool
-  , installOptFormat   :: Bool
-  , installOptLink     :: Bool
-  , installOptFlake    :: String
+  { installOptRootDev :: String
+  , installOptFormat  :: Bool
+  , installOptLink    :: Bool
+  , installOptFlake   :: String
   }
 
 installCmd :: Command (RIO App ())
@@ -32,10 +31,6 @@ installCmd = addCommand
                  <> help "Root device to install Nux system"
                  <> value ""
                  )
-    <*> switch ( long "generate"
-              <> short 'g'
-              <> help "Generate hardware configuration even if it already exists"
-               )
     <*> switch ( long "format"
               <> help "Format the root device before installation"
                )
@@ -66,6 +61,6 @@ runInstall InstallOptions{..} = do
     y <- yesNo "Do you want to continue the installation"
     unless y $ die "user cancelled installation!"
   rootDir <- prepareRoot rootDev installOptFormat isForce
-  generateHardwareConfig rootDir hostDir installOptGenerate
-  generateDrivers hostDir installOptGenerate
+  generateHardwareConfig rootDir hostDir isForce
+  generateDrivers hostDir isForce
   installFlake flake rootDir hostname installOptLink isForce

@@ -7,6 +7,7 @@ module Nux.Cmd.Host
 
 import           Nux.Host
 import           Nux.Options
+import           Nux.Process
 import           Nux.Util
 import           RIO
 import           RIO.Directory
@@ -27,7 +28,8 @@ hostCmds = addSubCommands
   )
 
 data AddOptions = AddOptions
-  { addOptNames :: [String]
+  { addOptNames    :: [String]
+  , addOptCopyFrom :: String
   }
 
 addCmd :: Command (RIO App ())
@@ -35,9 +37,17 @@ addCmd = addCommand
   "add"
   "Add host configuration"
   runAdd
-  (AddOptions <$> some (strArgument ( metavar "NAME"
+  (AddOptions
+    <$> some (strArgument ( metavar "NAME"
                                     <> help "Host name to be added"
-                                    )))
+                          )
+              )
+    <*> strOption ( long "copy-from"
+                           <> short 'c'
+                           <> help "Copy from existing host configuration"
+                           <> value ""
+                  )
+  )
 
 runAdd :: AddOptions -> RIO App ()
 runAdd AddOptions{..} = do
@@ -59,10 +69,33 @@ runAdd AddOptions{..} = do
         let hostNix = hostDir </> "default.nix"
         let hostFile = hostDir </> "host.json"
         createDirectoryIfMissing True hostDir
-        writeBinaryFile hostNix $ fromString $ L.unlines
-          [ "with builtins; fromJSON (readFile ./host.json)"
-          ]
-        writeHost hostFile $ newHost system
+        if addOptCopyFrom /= ""
+          then do
+            let srcHostDir = hostsDir </> addOptCopyFrom
+            logInfo $ fromString $ "Cloning host configuration from " <> addOptCopyFrom
+            cloneHost srcHostDir hostDir
+          else do
+            logInfo "Generating new host configuration"
+            writeBinaryFile hostNix $ fromString $ L.unlines
+              [ "with builtins; fromJSON (readFile ./host.json)"
+              ]
+            writeHost hostFile $ newHost system
+
+cloneHost :: FilePath -> FilePath -> RIO App ()
+cloneHost srcHostDir tgtHostDIr  = do
+  exists <- doesDirectoryExist srcHostDir
+  unless exists $
+    throwString $ "Source host directory not found: " <> srcHostDir
+  createDirectoryIfMissing True tgtHostDIr
+  files <- listDirectory srcHostDir
+    <&> filter (`notElem` ["drivers.nix", "hardware.nix"])
+  forM_ files $ \f -> do
+    let src = srcHostDir </> f
+    let dst = tgtHostDIr </> f
+    isDir <- doesDirectoryExist src
+    if isDir
+      then cp src dst
+      else copyFile src dst
 
 data DelOptions = DelOptions
   { delOptNames           :: [String]
