@@ -12,7 +12,8 @@ import           RIO
 import           SimplePrompt
 
 data UpdateOptions = UpdateOptions
-  { updateOptTest     :: Bool
+  { updateOptTest       :: Bool
+  , updateOptBootLoader :: Bool
   }
 
 updateCmd :: Command (RIO App ())
@@ -26,6 +27,11 @@ updateCmd = addCommand
      <> short 't'
      <> help "Build and activate the update without making it the boot default"
      )
+    <*> switch
+      ( long "bootloader"
+     <> short 'b'
+     <> help "Install or re-install the boot loader on the device specified by relevant options"
+      )
   )
 
 runUpdate :: UpdateOptions -> RIO App ()
@@ -42,5 +48,5 @@ runUpdate UpdateOptions{..} = do
   logInfo "Upgrading the system"
   if updateOptTest
     then flakeTest flake hostname
-    else flakeSwitch flake hostname
+    else flakeSwitch flake hostname updateOptBootLoader
   logInfo "Successfully upgraded system!"

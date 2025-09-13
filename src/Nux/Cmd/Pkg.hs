@@ -93,7 +93,7 @@ runRemove RemoveOptions{..} = do
       logInfo $ fromString $ "Deleting user packages from user " <> username
       delUserAutos flake username removeOptNames
   logInfo "Building and switching NuxOS configuration"
-  flakeSwitch flake hostname
+  flakeSwitch flake hostname False
   logInfo "Successfully installed system packages!"
 
 data AddOptions = AddOptions

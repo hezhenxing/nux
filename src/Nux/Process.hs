@@ -104,15 +104,23 @@ flakeUpdate flakeDir
 
 flakeSwitch
   :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> String -> RIO env ()
-flakeSwitch flakeDir hostname
-  = cmd "nh"
-  & arg "os"
-  & arg "switch"
-  & arg flakeDir
-  & arg "--hostname"
-  & arg hostname
-  & run
+  => FilePath -> String -> Bool -> RIO env ()
+flakeSwitch flakeDir hostname bootloader
+  -- FIXME: nh does not support --install-bootloader
+  | bootloader = cmd "nixos-rebuild"
+    & arg "switch"
+    & arg "--install-bootloader"
+    & arg "--flake"
+    & arg (flakeDir <> "#" <> hostname)
+    & sudo
+    & run
+  | otherwise = cmd "nh"
+    & arg "os"
+    & arg "switch"
+    & arg flakeDir
+    & arg "--hostname"
+    & arg hostname
+    & run
 
 flakeTest
   :: (HasProcessContext env, HasLogFunc env)

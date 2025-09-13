@@ -99,7 +99,7 @@ addHostAutos flakeDir hostName names yes switch = do
         writeHost hostFile host { hostAutos = hostAutos host ++ ns}
         when switch $ do
           logInfo "Building and switching NuxOS configuration"
-          flakeSwitch flakeDir hostName
+          flakeSwitch flakeDir hostName False
           logInfo "Successfully installed host packages!"
 
 delHostAutos :: FilePath -> String -> [String] -> RIO env ()
@@ -154,7 +154,7 @@ addUserAutos flakeDir hostName userName names yes switch = do
         writeUser userFile user { userAutos = userAutos user ++ ns}
         when switch $ do
           logInfo "Building and switching NuxOS configuration"
-          flakeSwitch flakeDir hostName
+          flakeSwitch flakeDir hostName False
           logInfo "Successfully installed user packages!"
 
 delUserAutos :: FilePath -> String -> [String] -> RIO env ()

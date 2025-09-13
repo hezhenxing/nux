@@ -32,15 +32,5 @@ runSwitch SwitchOptions{..} = do
   hostname <- view hostL
   logInfo $ fromString $ "Using NuxOS configuration in " <> flake
   logInfo $ fromString $ "Building and switching NuxOS system of host " <> hostname
-  if switchOptBootLoader
-    then
-      -- FIXME: nh does not support --install-bootloader
-      run $ cmd "nixos-rebuild"
-          & arg "switch"
-          & arg "--install-bootloader"
-          & arg "--flake"
-          & arg (flake <> "#" <> hostname)
-          & sudo
-    else
-      flakeSwitch flake hostname
+  flakeSwitch flake hostname switchOptBootLoader
   logInfo "Successfully switched system!"
