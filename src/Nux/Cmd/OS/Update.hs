@@ -12,7 +12,7 @@ import           RIO
 import           SimplePrompt
 
 data UpdateOptions = UpdateOptions
-  { updateOptTest :: Bool
+  { updateOptTest     :: Bool
   }
 
 updateCmd :: Command (RIO App ())
@@ -24,7 +24,8 @@ updateCmd = addCommand
     <$> switch
       ( long "test"
      <> short 't'
-     <> help "Build and activate the update without making it the boot default" )
+     <> help "Build and activate the update without making it the boot default"
+     )
   )
 
 runUpdate :: UpdateOptions -> RIO App ()

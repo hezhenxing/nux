@@ -15,11 +15,11 @@ import           RIO.FilePath
 import           SimplePrompt  (yesNo)
 
 data InstallOptions = InstallOptions
-  { installOptRootDev   :: String
-  , installlOptGenerate :: Bool
-  , installOptFormat    :: Bool
-  , installOptLink      :: Bool
-  , installOptFlake     :: String
+  { installOptRootDev  :: String
+  , installOptGenerate :: Bool
+  , installOptFormat   :: Bool
+  , installOptLink     :: Bool
+  , installOptFlake    :: String
   }
 
 installCmd :: Command (RIO App ())
@@ -66,5 +66,6 @@ runInstall InstallOptions{..} = do
     y <- yesNo "Do you want to continue the installation"
     unless y $ die "user cancelled installation!"
   rootDir <- prepareRoot rootDev installOptFormat isForce
-  generateHardwareConfig rootDir hostDir installlOptGenerate
+  generateHardwareConfig rootDir hostDir installOptGenerate
+  generateDrivers hostDir installOptGenerate
   installFlake flake rootDir hostname installOptLink isForce

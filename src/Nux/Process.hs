@@ -4,7 +4,7 @@ module Nux.Process where
 
 import           Data.Aeson
 import           Nux.Util
-import           Prelude             (showChar, showString)
+import           Prelude             (read, showChar, showString)
 import           RIO
 import qualified RIO.ByteString.Lazy as BL
 import           RIO.Char
@@ -88,6 +88,10 @@ readStdoutString :: (HasProcessContext env, HasLogFunc env) => Proc -> RIO env S
 readStdoutString p =
   readStdout p <&> T.unpack . decodeUtf8Lenient . BL.toStrict
 
+readStdoutLines :: (HasProcessContext env, HasLogFunc env) => Proc -> RIO env [String]
+readStdoutLines p =
+  readStdout p <&> lines . T.unpack . decodeUtf8Lenient . BL.toStrict
+
 flakeUpdate
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> RIO env ()
@@ -128,9 +132,11 @@ flakeInstall
   => FilePath -> FilePath -> String -> RIO env ()
 flakeInstall rootDir flakeDir hostname
   = cmd "nixos-install"
+  & arg "--no-root-passwd"
   & arg "--root"
   & arg rootDir
-  & arg (flakeDir </> "#" <> hostname)
+  & arg "--flake"
+  & arg (flakeDir <> "#" <> hostname)
   & sudo
   & run
 
@@ -250,3 +256,14 @@ nixEvalAttrNames flakeDir attrName = do
   case eitherDecode content of
     Left err -> throwString err
     Right  r -> return r
+
+blockDevSize
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> RIO env Int
+blockDevSize dev
+  = cmd "blockdev"
+  & arg "--getsize64"
+  & arg dev
+  & sudo
+  & readStdoutString
+  <&> read . trim

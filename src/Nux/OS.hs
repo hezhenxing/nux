@@ -14,6 +14,7 @@ import           RIO.File
 import           RIO.FilePath
 import qualified RIO.List            as L
 import           RIO.Process
+import           System.IO           (readFile)
 
 writeFlakeFile :: FilePath -> String -> RIO env ()
 writeFlakeFile flake url = do
@@ -134,15 +135,19 @@ prepareRoot rootDev formatRoot isForce = do
       logInfo "Using current root filesystem"
       return "/"
     else do
-      logInfo $ fromString $ "Preparing root filesystem from device " <> rootDev
-      checkMountPoint
-      when formatRoot $ do
-        logInfo $ fromString $ "Formatting " <> rootDev
-        mkfs isForce "btrfs" rootDev
-      mountRoot rootDev
-      return mnt
+      size <- blockDevSize rootDev
+      if size < 10 * 1024 * 1024 * 1024  -- 10GB
+        then throwString "root device size is too small (less than 10GB)"
+        else do
+          logInfo $ fromString $ "Preparing root filesystem from device " <> rootDev
+          checkMountPoint
+          when formatRoot $ do
+            logInfo $ fromString $ "Formatting " <> rootDev
+            mkfs isForce "btrfs" rootDev
+          mountRoot rootDev
+          return mnt
   where
-    mnt = "/mn"
+    mnt = "/mnt"
 
 checkMountPoint
   :: (HasProcessContext env, HasLogFunc env) => RIO env ()
@@ -210,3 +215,40 @@ generateHardwareConfig rootDir hostDir isForce = do
 
 withTempFlake :: (FilePath -> RIO env ()) -> RIO env ()
 withTempFlake = withSystemTempDirectory "nuxos"
+
+generateDrivers
+  :: HasLogFunc env
+  => FilePath
+  -> Bool
+  -> RIO env ()
+generateDrivers hostDir isForce = do
+  let drvFile = hostDir </> "drivers.nix"
+  exists <- doesFileExist drvFile
+  if exists && not isForce
+    then do
+      logWarn "Drivers config already exists, add --generate to re-generate"
+    else do
+      logInfo $ fromString "Generating drivers configuration"
+      devices <- listDirectory "/sys/bus/pci/devices"
+      drivers <- L.nub . concat <$> mapM deviceDrivers devices
+      unless (null drivers) $ do
+        logInfo $ fromString $ "Detected video drivers: " <> L.intercalate ", " drivers
+        writeBinaryFile drvFile $ fromString $ L.unlines
+          [ "{"
+          , "  services.xserver.videoDrivers = [" <> L.intercalate " " (map show drivers) <> "];"
+          , if "nvidia" `elem` drivers
+              then "  hardware.nvidia.open = false;"
+              else ""
+          , "}"
+          ]
+  where
+    deviceDrivers dev = do
+      vendor <- trim <$> liftIO (readFile $ "/sys/bus/pci/devices" </> dev </> "vendor")
+      klass  <- trim <$> liftIO (readFile $ "/sys/bus/pci/devices" </> dev </> "class")
+      if  "0x03" `L.isPrefixOf` klass
+        then case vendor of
+          "0x10de" -> return ["nvidia"]
+          "0x8086" -> return ["intel"]
+          "0x1002" -> return ["amdgpu"]
+          _        -> return []
+        else return []
