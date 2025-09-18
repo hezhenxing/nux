@@ -83,7 +83,9 @@ installFlake flake rootDir hostname symLink noBootLoader isForce = do
   let lockFile = flake </> "flake.lock"
   unlessM (doesFileExist lockFile) $
     run $ cmd "nix" & arg "flake" & arg "lock"
-  exists <- doesPathExist $ rootDir </> "etc/nuxos"
+  exists <- anyM doesPathExist [ rootDir </> "etc/NUXOS"
+                               , rootDir </> "etc/nuxos"
+                               ]
   when (exists && not isForce) $ do
     throwString "target root filesystem already has NuxOS installed, use --force if you want to overwrite it"
   let nuxosPath = rootDir </> "etc/nuxos"

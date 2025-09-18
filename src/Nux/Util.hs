@@ -10,6 +10,18 @@ import qualified RIO.List                 as L
 import qualified RIO.List.Partial         as L
 import qualified System.Environment.Blank as Env
 
+anyM :: (Monad m, Foldable f) => (a -> m Bool) -> f a -> m Bool
+anyM f = foldr (orM . f) (pure False)
+
+allM :: (Monad m, Foldable f) => (a -> m Bool) -> f a -> m Bool
+allM f = foldr (andM . f) (pure True)
+
+orM :: Monad m => m Bool -> m Bool -> m Bool
+orM m1 m2 = m1 >>= \x -> if x then return True else m2
+
+andM :: Monad m => m Bool -> m Bool -> m Bool
+andM m1 m2 = m1 >>= \x -> if x then m2 else return False
+
 split :: Eq a => a -> [a] -> [[a]]
 split a as = case rest of
   []   -> [chunk]
