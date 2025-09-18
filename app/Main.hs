@@ -13,7 +13,7 @@ import           System.Posix.User
 main :: IO ()
 main = do
   hostname <- getHostName
-  username <- getEffectiveUserName
+  username <- getLoginName
   (options, cmd) <- simpleOptions
     $(simpleVersion version)
     "Nux"

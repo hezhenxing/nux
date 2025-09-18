@@ -102,7 +102,9 @@ addHostAutos flakeDir hostName names yes switch = do
           flakeSwitch flakeDir hostName False
           logInfo "Successfully installed host packages!"
 
-delHostAutos :: FilePath -> String -> [String] -> RIO env ()
+delHostAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> [String] -> RIO env ()
 delHostAutos flake hostname names = do
   host <- readFlakeHost flake hostname
   let
@@ -157,7 +159,9 @@ addUserAutos flakeDir hostName userName names yes switch = do
           flakeSwitch flakeDir hostName False
           logInfo "Successfully installed user packages!"
 
-delUserAutos :: FilePath -> String -> [String] -> RIO env ()
+delUserAutos
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> [String] -> RIO env ()
 delUserAutos flake username names = do
   user <- readFlakeUser flake username
   let

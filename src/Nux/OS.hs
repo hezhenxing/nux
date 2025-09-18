@@ -29,7 +29,7 @@ writeFlakeFile flake url = do
     ]
 
 initFlake
- :: HasLogFunc env
+ :: (HasProcessContext env, HasLogFunc env)
  => FilePath     -- flake
  -> String       -- url
  -> String       -- hostname
@@ -76,9 +76,10 @@ installFlake
   -> FilePath          -- root directory (e.g., "/" or "/mnt")
   -> String            -- hostname
   -> Bool              -- symLink
+  -> Bool              -- noBootLoader
   -> Bool              -- force
   -> RIO env ()
-installFlake flake rootDir hostname symLink isForce = do
+installFlake flake rootDir hostname symLink noBootLoader isForce = do
   let lockFile = flake </> "flake.lock"
   unlessM (doesFileExist lockFile) $
     run $ cmd "nix" & arg "flake" & arg "lock"
@@ -115,64 +116,56 @@ installFlake flake rootDir hostname symLink isForce = do
       -- FIXME: nh does not support --install-bootloader
       run $ cmd "nixos-rebuild"
           & arg "switch"
-          & arg "--install-bootloader"
+          & args ["--install-bootloader" | not noBootLoader]
           & arg "--flake"
           & arg (flake <> "#" <> hostname)
           & sudo
     else do
-      flakeInstall mnt flake hostname
-      umountRoot
+      flakeInstall rootDir flake hostname noBootLoader
+      umountRoot rootDir
   logInfo "Congradulations! Installation succeeded!"
-  where
-    mnt = "/mnt"
 
 prepareRoot
   :: (HasProcessContext env, HasLogFunc env)
-  => String -> Bool -> Bool -> RIO env FilePath
-prepareRoot rootDev formatRoot isForce = do
-  if rootDev == ""
-    then do
-      logInfo "Using current root filesystem"
-      return "/"
+  => String -> FilePath -> Bool -> Bool -> RIO env ()
+prepareRoot rootDev rootDir formatRoot isForce = do
+  size <- blockDevSize rootDev
+  if size < 10 * 1024 * 1024 * 1024  -- 10GB
+    then throwString "root device size is too small (less than 10GB)"
     else do
-      size <- blockDevSize rootDev
-      if size < 10 * 1024 * 1024 * 1024  -- 10GB
-        then throwString "root device size is too small (less than 10GB)"
-        else do
-          logInfo $ fromString $ "Preparing root filesystem from device " <> rootDev
-          checkMountPoint
-          when formatRoot $ do
-            logInfo $ fromString $ "Formatting " <> rootDev
-            mkfs isForce "btrfs" rootDev
-          mountRoot rootDev
-          return mnt
-  where
-    mnt = "/mnt"
+      logInfo $ fromString $ "Preparing root filesystem from device " <> rootDev
+      checkMountPoint rootDir
+      when formatRoot $ do
+        logInfo $ fromString $ "Formatting " <> rootDev
+        mkfs isForce "btrfs" rootDev
+      mountRoot rootDev rootDir
 
 checkMountPoint
-  :: (HasProcessContext env, HasLogFunc env) => RIO env ()
-checkMountPoint = do
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> RIO env ()
+checkMountPoint rootDir = do
   mountpoint efiMount >>= \case
     False -> return ()
     True -> do
-      logWarn $ fromString $ "Mountpoint in use: " <> (mnt <> efiMount) <> ", unmounting..."
+      logWarn $ fromString $ "Mountpoint in use: " <> (rootDir <> efiMount) <> ", unmounting..."
       umount efiMount
-  mountpoint mnt >>= \case
+  mountpoint rootDir >>= \case
     False -> return ()
     True -> do
-      logWarn $ fromString $ "Mountpoint in use: " <> mnt <> ", unmounting..."
-      umount mnt
+      logWarn $ fromString $ "Mountpoint in use: " <> rootDir <> ", unmounting..."
+      umount rootDir
   where
-    mnt = "/mnt"
-    efiMount = mnt <> "/boot/efi"
+    efiMount = rootDir <> "/boot/efi"
 
-mountRoot :: (HasProcessContext env, HasLogFunc env) => String -> RIO env ()
-mountRoot rootDev = do
+mountRoot
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> FilePath -> RIO env ()
+mountRoot rootDev rootDir = do
   efiDev <- getEfiDevice
   whenM (mounted rootDev) $ do
     throwString $ "root device already mounted: " <> rootDev
-  logInfo $ fromString $ "Mounting " <> rootDev <> " to " <> mnt
-  mount rootDev mnt
+  logInfo $ fromString $ "Mounting " <> rootDev <> " to " <> rootDir
+  mount rootDev rootDir
   run $ cmd "mkdir"
       & arg "-p"
       & arg efiMount
@@ -180,16 +173,16 @@ mountRoot rootDev = do
   logInfo $ fromString $ "Mounting " <> efiDev <> " to " <> efiMount
   mount efiDev efiMount
   where
-    mnt = "/mnt"
-    efiMount = mnt <> "/boot/efi"
+    efiMount = rootDir <> "/boot/efi"
 
-umountRoot :: (HasProcessContext env, HasLogFunc env) => RIO env ()
-umountRoot = do
+umountRoot
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> RIO env ()
+umountRoot rootDir = do
   umount efiMount
-  umount mnt
+  umount rootDir
   where
-    mnt = "/mnt"
-    efiMount = mnt <> "/boot/efi"
+    efiMount = rootDir <> "/boot/efi"
 
 generateHardwareConfig
   :: (HasProcessContext env, HasLogFunc env)

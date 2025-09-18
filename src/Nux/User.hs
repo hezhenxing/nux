@@ -61,9 +61,11 @@ userFilePath flake user = userDirPath flake user </> "user.json"
 doesUserExist :: FilePath -> String -> RIO env Bool
 doesUserExist flake username = doesFileExist $ userFilePath flake username
 
-writeUser :: FilePath -> User -> RIO env ()
+writeUser
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> User -> RIO env ()
 writeUser path user = do
-  writeBinaryFile path $ BL.toStrict $ encodePretty user
+  writeFileAtomicOwner path $ BL.toStrict $ encodePretty user
 
 readUser :: FilePath -> RIO env User
 readUser path = do
@@ -75,7 +77,9 @@ readUser path = do
 readFlakeUser :: FilePath -> String -> RIO env User
 readFlakeUser flake username = readUser $ userFilePath flake username
 
-writeFlakeUser :: FilePath -> String -> User -> RIO env ()
+writeFlakeUser
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> User -> RIO env ()
 writeFlakeUser flake username = writeUser (userFilePath flake username)
 
 writeFlakeUserNix :: FilePath -> String -> RIO env ()
@@ -85,7 +89,9 @@ writeFlakeUserNix flake username = do
     [ "with builtins; fromJSON (readFile ./user.json)"
     ]
 
-addFlakeUser :: FilePath -> String -> User -> RIO env ()
+addFlakeUser
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> User -> RIO env ()
 addFlakeUser flake username user = do
   let userDir = userDirPath flake username
   createDirectoryIfMissing True userDir

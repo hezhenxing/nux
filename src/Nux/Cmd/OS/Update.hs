@@ -9,6 +9,7 @@ import           Nux.Options
 import           Nux.Process
 import           Nux.Util
 import           RIO
+import           RIO.FilePath
 import           SimplePrompt
 
 data UpdateOptions = UpdateOptions
@@ -40,10 +41,16 @@ runUpdate UpdateOptions{..} = do
   flake <- view flakeL >>= followLink
   hostname <- view hostL
   logInfo $ fromString $ "Updating NuxOS configuration in " <> flake
+  let lockFile = flake </> "flake.lock"
+  md5old <- md5sum lockFile
   flakeUpdate flake
+  md5new <- md5sum lockFile
+  when (md5old == md5new) $ do
+    logInfo "Everything is up to date, nothing updated!"
+    exitSuccess
   logInfo "Updated the configuration!"
   unless yes $ do
-    y <- yesNo "Do you want to upgrade the system"
+    y <- yesNo "Do you want to upgrade the system to the new configuration"
     unless y $ die "user cancelled upgrade"
   logInfo "Upgrading the system"
   if updateOptTest

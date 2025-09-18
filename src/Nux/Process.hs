@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Nux.Process where
@@ -8,11 +9,15 @@ import           Prelude             (read, showChar, showString)
 import           RIO
 import qualified RIO.ByteString.Lazy as BL
 import           RIO.Char
+import           RIO.Directory
+import           RIO.File            (writeBinaryFile)
+import           RIO.FilePath
 import qualified RIO.List            as L
 import           RIO.Process
 import qualified RIO.Text            as T
 import qualified System.Exit         as Exit
-
+import           System.IO.Temp
+import           System.Posix.Files
 data Proc = Proc
   { procCommand :: String
   , procArgs    :: [String]
@@ -91,16 +96,24 @@ readStdoutLines :: (HasProcessContext env, HasLogFunc env) => Proc -> RIO env [S
 readStdoutLines p =
   readStdout p <&> lines . T.unpack . decodeUtf8Lenient . BL.toStrict
 
+md5sum :: (HasProcessContext env, HasLogFunc env) => FilePath -> RIO env String
+md5sum file = do
+  cmd "md5sum"
+    & arg file
+    & readStdoutString
+    <&> L.takeWhile (/= ' ')
+
 flakeUpdate
   :: (HasProcessContext env, HasLogFunc env)
   => FilePath -> RIO env ()
-flakeUpdate flakeDir
-  = cmd "nix"
-  & arg "flake"
-  & arg "update"
-  & arg "--flake"
-  & arg flakeDir
-  & run
+flakeUpdate flakeDir = do
+  s <- liftIO $ getFileStatus flakeDir
+  run $ cmd "nix"
+      & arg "flake"
+      & arg "update"
+      & arg "--flake"
+      & arg flakeDir
+      & if fileOwner s == 0 then sudo else id
 
 flakeSwitch
   :: (HasProcessContext env, HasLogFunc env)
@@ -136,10 +149,11 @@ flakeTest flakeDir hostname
 
 flakeInstall
   :: (HasProcessContext env, HasLogFunc env)
-  => FilePath -> FilePath -> String -> RIO env ()
-flakeInstall rootDir flakeDir hostname
+  => FilePath -> FilePath -> String -> Bool -> RIO env ()
+flakeInstall rootDir flakeDir hostname noBootLoader
   = cmd "nixos-install"
   & arg "--no-root-passwd"
+  & args [ "--no-bootloader" | noBootLoader ]
   & arg "--root"
   & arg rootDir
   & arg "--flake"
@@ -278,3 +292,40 @@ blockDevSize dev
   & sudo
   & readStdoutString
   <&> read . trim
+
+-- writeFile with atomic replace and preserving ownership
+writeFileAtomicOwner
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> ByteString -> RIO env ()
+writeFileAtomicOwner file content = do
+  let (dir, fname) = splitFileName file
+  temp <- liftIO $ emptySystemTempFile fname
+  writeBinaryFile temp content
+  doesFileExist file >>= \case
+    False -> do
+      cmd "chmod"
+        & arg "644"
+        & arg temp
+        & sudo
+        & run
+      cmd "chown"
+        & arg ("--reference=" <> dir)
+        & arg temp
+        & sudo
+        & run
+    True  -> do
+      cmd "chmod"
+        & arg ("--reference=" <> file)
+        & arg temp
+        & sudo
+        & run
+      cmd "chown"
+        & arg ("--reference=" <> file)
+        & arg temp
+        & sudo
+        & run
+  cmd "mv"
+    & arg temp
+    & arg file
+    & sudo
+    & run

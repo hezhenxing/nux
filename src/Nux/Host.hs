@@ -77,9 +77,11 @@ hostFilePath flake host = hostDirPath flake host </> "host.json"
 doesHostExist :: FilePath -> String -> RIO env Bool
 doesHostExist flake hostname = doesFileExist $ hostFilePath flake hostname
 
-writeHost :: FilePath -> Host -> RIO env ()
+writeHost
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> Host -> RIO env ()
 writeHost path host = do
-  writeBinaryFile path $ BL.toStrict $ encodePretty host
+  writeFileAtomicOwner path $ BL.toStrict $ encodePretty host
 
 readHost :: FilePath -> RIO env Host
 readHost path = do
@@ -91,7 +93,9 @@ readHost path = do
 readFlakeHost :: FilePath -> String -> RIO env Host
 readFlakeHost flake hostname = readHost $ hostFilePath flake hostname
 
-writeFlakeHost :: FilePath -> String -> Host -> RIO env ()
+writeFlakeHost
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> Host -> RIO env ()
 writeFlakeHost flake hostname = writeHost (hostFilePath flake hostname)
 
 writeFlakeHostNix :: FilePath -> String -> RIO env ()
@@ -103,7 +107,9 @@ writeFlakeHostNix flake hostname = do
       [ "with builtins; fromJSON (readFile ./host.json)"
       ]
 
-addFlakeHost :: FilePath -> String -> Host -> RIO env ()
+addFlakeHost
+  :: (HasProcessContext env, HasLogFunc env)
+  => FilePath -> String -> Host -> RIO env ()
 addFlakeHost flake hostname host = do
   let hostDir = hostDirPath flake hostname
   createDirectoryIfMissing True hostDir

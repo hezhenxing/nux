@@ -9,16 +9,18 @@ where
 import           Nux.Options
 import           Nux.OS
 import           Nux.Process
+import           Nux.Util      (followLink)
 import           RIO
 import           RIO.Directory (makeAbsolute)
 import           RIO.FilePath
 import           SimplePrompt  (yesNo)
 
 data InstallOptions = InstallOptions
-  { installOptRootDev :: String
-  , installOptFormat  :: Bool
-  , installOptLink    :: Bool
-  , installOptFlake   :: String
+  { installOptRoot         :: String
+  , installOptFormat       :: Bool
+  , installOptLink         :: Bool
+  , installOptNoBootLoader :: Bool
+  , installOptRootDev      :: String
   }
 
 installCmd :: Command (RIO App ())
@@ -28,8 +30,8 @@ installCmd = addCommand
   runInstall
   (InstallOptions
     <$> strOption ( long "root"
-                 <> help "Root device to install Nux system"
-                 <> value ""
+                 <> help "Root directory to use when installing NuxOS system"
+                 <> value "/mnt"
                  )
     <*> switch ( long "format"
               <> help "Format the root device before installation"
@@ -38,9 +40,12 @@ installCmd = addCommand
               <> short 'L'
               <> help "Use symbolic link instead of copying to /etc/nuxos"
                )
-    <*> strArgument ( metavar "DIR"
-                   <> help "The NuxOS configuration directory, default to current directory"
-                   <> value "."
+    <*> switch ( long "no-bootloader"
+              <> short 'B'
+              <> help "Do not install boot loader"
+               )
+    <*> strArgument ( metavar "DEVICE"
+                   <> help "The root partition device to install NuxOS configuration directory"
                     )
   )
 
@@ -49,18 +54,21 @@ runInstall InstallOptions{..} = do
   yes <- view yesL
   hostname <- view hostL
   isForce <- view forceL
-  flake <- makeAbsolute installOptFlake
+  flake <- view flakeL >>= makeAbsolute >>= followLink
   let hostDir = flake </> "nix/hosts" </> hostname
   let rootDev = installOptRootDev
+  let rootDir = if rootDev == ""
+                  then "/"
+                  else installOptRoot
   if rootDev == ""
     then
-      logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to current system"
+      logInfo $ fromString $ "Will install NuxOS configuration of host " <> hostname <> " from " <> flake <> " to current system"
     else
-      logInfo $ fromString $ "Will install NuxOS system from flake " <> flake <> " to root device " <> rootDev
+      logInfo $ fromString $ "Will install NuxOS configuration of host " <> hostname <> " from " <> flake <> " to root device " <> rootDev
   unless yes $ do
     y <- yesNo "Do you want to continue the installation"
     unless y $ die "user cancelled installation!"
-  rootDir <- prepareRoot rootDev installOptFormat isForce
+  prepareRoot rootDev rootDir installOptFormat isForce
   generateHardwareConfig rootDir hostDir isForce
   generateDrivers hostDir isForce
-  installFlake flake rootDir hostname installOptLink isForce
+  installFlake flake rootDir hostname installOptLink installOptNoBootLoader isForce
